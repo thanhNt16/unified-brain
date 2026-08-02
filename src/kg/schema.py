@@ -1,5 +1,5 @@
-from collections import OrderedDict
 import sqlite3
+from collections import OrderedDict
 
 CURRENT_VERSION = 1
 MIGRATIONS = OrderedDict(

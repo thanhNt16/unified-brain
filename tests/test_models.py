@@ -1,5 +1,6 @@
-from kg.models import Relation, NoteStatus, Note, Edge, Proposal, Provenance, DreamOp, ProposedDiff
 from pydantic import ValidationError
+
+from kg.models import DreamOp, Edge, Note, NoteStatus, Proposal, ProposedDiff, Relation
 
 BASE = {
     "id": "nt_1234567890abcdef",
@@ -17,7 +18,13 @@ BASE = {
 
 def test_enums_and_strict_note() -> None:
     assert [x.value for x in Relation] == [
-        "depends_on", "causes", "supports", "contradicts", "supersedes", "mentions", "related_to",
+        "depends_on",
+        "causes",
+        "supports",
+        "contradicts",
+        "supersedes",
+        "mentions",
+        "related_to",
     ]
     assert [x.value for x in NoteStatus] == ["draft", "verified", "superseded", "tombstone"]
     assert Note(**BASE).kind == "concept"

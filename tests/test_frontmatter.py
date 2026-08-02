@@ -1,6 +1,6 @@
 import pytest
 
-from kg.frontmatter import FrontmatterError, parse_frontmatter, render_frontmatter, parse_note, render_note
+from kg.frontmatter import FrontmatterError, parse_frontmatter, parse_note, render_frontmatter, render_note
 from kg.models import Note
 
 DATA = {

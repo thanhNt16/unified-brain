@@ -1,8 +1,9 @@
-from pathlib import Path
 import hashlib
+from pathlib import Path
+
 import pytest
 
-from kg.storage import VaultPaths, discover_vault, atomic_write, writer_lock, LockBusy, Registry, ContractLog
+from kg.storage import ContractLog, LockBusy, Registry, VaultPaths, atomic_write, discover_vault, writer_lock
 
 
 def test_discovery_and_atomic_write(tmp_path: Path) -> None:
@@ -37,7 +38,5 @@ def test_registry_dedup_and_contract_sequence(tmp_path: Path) -> None:
 
 def test_lock_contention(tmp_path: Path) -> None:
     p = tmp_path / "writer.lock"
-    with writer_lock(p):
-        with pytest.raises(LockBusy):
-            with writer_lock(p):
-                pass
+    with writer_lock(p), pytest.raises(LockBusy), writer_lock(p):
+        pass

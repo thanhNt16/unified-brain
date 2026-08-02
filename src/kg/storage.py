@@ -1,11 +1,11 @@
-from contextlib import contextmanager
-from dataclasses import dataclass
-from pathlib import Path
 import json
 import os
 import tempfile
 import time
-from typing import Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
 
 try:
     import fcntl

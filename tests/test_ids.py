@@ -1,8 +1,7 @@
-import json
 import subprocess
 import sys
 
-from kg.ids import normalize_title, note_id, edge_id, diff_id
+from kg.ids import diff_id, edge_id, normalize_title, note_id
 
 
 def test_normalization_and_prefixes() -> None:

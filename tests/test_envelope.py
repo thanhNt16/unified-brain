@@ -1,4 +1,4 @@
-from kg.envelope import ErrorCodes, ok, error
+from kg.envelope import ErrorCodes, error, ok
 
 
 def test_exact_success_shape() -> None:

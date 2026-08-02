@@ -1,6 +1,4 @@
-from typing import Any
-
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
 from .models import Note
@@ -41,7 +39,7 @@ def render_frontmatter(data: dict[str, object], body: str = "") -> str:
 def parse_note(text: str) -> tuple[Note, str]:
     data, body = parse_frontmatter(text)
     try:
-        return Note(**data), body
+        return Note.model_validate(data), body
     except ValidationError as exc:
         raise FrontmatterError("invalid note") from exc
 

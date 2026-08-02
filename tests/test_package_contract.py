@@ -1,6 +1,6 @@
+import tomllib
 from importlib.metadata import version
 from pathlib import Path
-import tomllib
 
 
 def test_package_contract() -> None:

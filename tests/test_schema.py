@@ -1,4 +1,5 @@
 import sqlite3
+
 import pytest
 
 from kg.schema import CURRENT_VERSION, migrate
