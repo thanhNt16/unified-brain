@@ -48,6 +48,10 @@ def test_notes_fts_is_external_content_fts5_with_triggers() -> None:
         ),
     )
     assert c.execute("select title from notes_fts where notes_fts match 'beta'").fetchone()[0] == "Alpha"
+    c.execute("update notes set title='Gamma', body='delta body' where id='nt_0000000000000000'")
+    assert c.execute("select title from notes_fts where notes_fts match 'delta'").fetchone()[0] == "Gamma"
+    c.execute("delete from notes where id='nt_0000000000000000'")
+    assert c.execute("select 1 from notes_fts where notes_fts match 'delta'").fetchone() is None
 
 
 def test_legacy_plain_fts_is_repaired_on_migration() -> None:
