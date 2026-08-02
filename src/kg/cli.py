@@ -7,6 +7,10 @@ from typing import NoReturn
 
 import click
 
+from . import dream as dream_module
+from . import install as install_module
+from . import retrieval as retrieval_module
+from . import review as review_module
 from .envelope import ErrorCodes, error, ok
 from .storage import Vault, discover_vault
 
@@ -22,6 +26,8 @@ _CODE_PREFIXES: dict[str, ErrorCodes] = {
     "db_schema_newer": ErrorCodes.db_schema_newer,
     "vault_exists": ErrorCodes.vault_exists,
     "not_initialized": ErrorCodes.not_initialized,
+    "diff_path": ErrorCodes.diff_path,
+    "diff_state": ErrorCodes.diff_state,
 }
 
 
@@ -147,6 +153,170 @@ def extract_command(proposal: Path, as_json: bool) -> None:
         envelope = ok(data)
         status = 0
         _extract_contract(vault, proposal, envelope)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
+        envelope = error(_code_of(exc), str(exc))
+        status = 1
+    _emit(as_json, envelope, status)
+
+
+@main.command("query")
+@click.argument("query")
+@click.option("--strategy", default="adaptive", type=click.Choice(["adaptive", "lexical"]))
+@click.option("--hops", default=2, type=int)
+@click.option("--relations", default="causes,depends_on,related_to")
+@click.option("--direction", default="both", type=click.Choice(["both", "in", "out"]))
+@click.option("--limit", default=20, type=int)
+@click.option("--context", is_flag=True)
+@click.option("--json", "as_json", is_flag=True)
+def query_command(
+    query: str,
+    strategy: str,
+    hops: int,
+    relations: str,
+    direction: str,
+    limit: int,
+    context: bool,
+    as_json: bool,
+) -> None:
+    try:
+        rels = tuple(r.strip() for r in relations.split(",") if r.strip())
+        try:
+            retrieval_module.validate_query_params(hops, direction, limit, rels, strategy)
+        except ValueError as exc:
+            raise ValueError(f"limit_error: {exc}") from exc
+        vault = _require_vault()
+        assert vault.kg is not None
+        db = vault.kg / "brain.sqlite"
+        if not db.exists():
+            raise ValueError("not_initialized: run kg index first")
+        conn = sqlite3.connect(db)
+        try:
+            data = retrieval_module.query(
+                conn,
+                vault,
+                query,
+                strategy=strategy,
+                hops=hops,
+                relations=rels,
+                direction=direction,
+                limit=limit,
+                context=context,
+            )
+        finally:
+            conn.close()
+        envelope = ok(data)
+        status = 0
+        from .storage import contract_log
+
+        contract_log(vault, "kg", "query", {"query": query}, envelope, data)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
+        envelope = error(_code_of(exc), str(exc))
+        status = 1
+    _emit(as_json, envelope, status)
+
+
+@main.command("dream")
+@click.option("--passes", default=",".join(dream_module.PASSES))
+@click.option("--out", "out_path", type=click.Path(path_type=Path))
+@click.option("--json", "as_json", is_flag=True)
+def dream_command(passes: str, out_path: Path | None, as_json: bool) -> None:
+    try:
+        requested = tuple(p.strip() for p in passes.split(",") if p.strip())
+        unknown = set(requested) - set(dream_module.PASSES)
+        if unknown:
+            raise ValueError("limit_error: unknown dream pass")
+        vault = _require_vault()
+        assert vault.kg is not None
+        db = vault.kg / "brain.sqlite"
+        if not db.exists():
+            raise ValueError("not_initialized: run kg index first")
+        conn = sqlite3.connect(db)
+        try:
+            diff = dream_module.run(conn, vault, passes=requested)
+        finally:
+            conn.close()
+        dreams_dir = vault.kg / "dreams"
+        target = (out_path if out_path is not None else dreams_dir / f"{diff.id}.json").resolve()
+        if target.parent != dreams_dir:
+            raise ValueError("path_forbidden: --out must stay under .brain/.kg/dreams")
+        payload = json.dumps(
+            {
+                "id": diff.id,
+                "status": diff.status,
+                "operations": [operation.model_dump() for operation in diff.operations],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ) + "\n"
+        from .storage import atomic_write
+
+        atomic_write(target, payload.encode("utf-8"))
+        data: dict[str, object] = {
+            "id": diff.id,
+            "path": str(target),
+            "operations": len(diff.operations),
+        }
+        envelope = ok(data)
+        status = 0
+        from .storage import contract_log
+
+        contract_log(vault, "kg", "dream", {"passes": list(requested)}, envelope, data)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
+        envelope = error(_code_of(exc), str(exc))
+        status = 1
+    _emit(as_json, envelope, status)
+
+
+@main.command("review")
+@click.argument("diff", type=click.Path(path_type=Path, exists=True))
+@click.option("--approve", is_flag=True)
+@click.option("--reject", is_flag=True)
+@click.option("--json", "as_json", is_flag=True)
+def review_command(diff: Path, approve: bool, reject: bool, as_json: bool) -> None:
+    if approve and reject:
+        envelope = error(ErrorCodes.limit_error, "--approve and --reject are mutually exclusive")
+        _emit(as_json, envelope, 2)
+        return
+    try:
+        action = "approve" if approve else ("reject" if reject else None)
+        vault = _require_vault(anchor=diff)
+        data = review_module.review(vault, diff, action=action)
+        envelope = ok(data)
+        status = 0
+        from .storage import contract_log
+
+        if action is not None:
+            contract_log(vault, "kg", "review", {"diff": str(diff), "action": action}, envelope, data)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
+        envelope = error(_code_of(exc), str(exc))
+        status = 1
+    _emit(as_json, envelope, status)
+
+
+@main.command("install")
+@click.option("--root", "root_path", type=click.Path(path_type=Path), default=Path("."), show_default=True)
+@click.option("--apply", "do_apply", is_flag=True)
+@click.option("--uninstall", "do_uninstall", is_flag=True)
+@click.option("--force", is_flag=True)
+@click.option("--json", "as_json", is_flag=True)
+def install_command(root_path: Path, do_apply: bool, do_uninstall: bool, force: bool, as_json: bool) -> None:
+    if do_apply and do_uninstall:
+        envelope = error(ErrorCodes.limit_error, "--apply and --uninstall are mutually exclusive")
+        _emit(as_json, envelope, 2)
+        return
+    try:
+        data: object
+        if do_uninstall:
+            data = install_module.uninstall(root_path)
+        elif do_apply:
+            data = install_module.apply_install(install_module.plan_install(root_path, force=force))
+        else:
+            data = install_module.format_plan(install_module.plan_install(root_path, force=force))
+        envelope = ok(data)
+        status = 0
+    except install_module.InstallError as exc:
+        envelope = error(ErrorCodes.path_forbidden, str(exc))
+        status = 1
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
         status = 1
