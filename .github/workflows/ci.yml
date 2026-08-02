@@ -14,8 +14,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: uv sync
-      - run: uv sync
       - run: uv run ruff check src tests
       - run: uv run mypy src/kg --python-version ${{ matrix.python }}
       - run: uv run pytest tests/viz -v
+      - run: uv build --wheel --out-dir dist
       - run: uv run python -c "import glob,zipfile; z=zipfile.ZipFile(glob.glob('dist/*.whl')[0]); names=z.namelist(); assert any('assets/LICENSE.upstream' in n for n in names); assert any('assets/PROVENANCE.md' in n for n in names); assert all('http://' not in z.read(n).decode(errors='replace') for n in names if n.endswith('.js') and 'viz/assets/assets' in n)"
