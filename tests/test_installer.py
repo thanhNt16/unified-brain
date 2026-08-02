@@ -81,7 +81,7 @@ def _run(tmp_path: Path, script: Path) -> subprocess.CompletedProcess:
         "TMPDIR": str(temp_root),
     }
     (work / "home").mkdir()
-    return subprocess.run([str(script)], env=env, text=True, capture_output=True)
+    return subprocess.run([str(script)], env=env, text=True, capture_output=True, check=False)
 
 
 def test_hash_mismatch_fails_and_cleans_temp(tmp_path):
@@ -108,7 +108,7 @@ def test_verified_install_succeeds_without_harness_mutation(tmp_path):
         "HOME": str(home),
         "TMPDIR": str(temp_root),
     }
-    result = subprocess.run([str(script)], env=env, text=True, capture_output=True)
+    result = subprocess.run([str(script)], env=env, text=True, capture_output=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "kg 1.0.0" in result.stdout
     assert marker.read_text() == "unchanged"
