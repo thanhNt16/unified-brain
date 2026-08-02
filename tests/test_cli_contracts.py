@@ -128,7 +128,7 @@ def test_version_option(tmp_path: Path) -> None:
     runner = _runner()
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
-    assert "kg, version 1.0.0" in result.output
+    assert result.output == "kg 1.0.0\n"
 
 
 def test_contract_log_rows_for_mutations(tmp_path: Path, monkeypatch) -> None:

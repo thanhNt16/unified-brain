@@ -85,7 +85,7 @@ def test_wave1_commands_registered_and_in_help(tmp_path: Path) -> None:
         assert name in result.output
     for name in ("init", "ingest", "extract", "apply", "index"):
         assert name in result.output
-    assert "version 1.0.0" in _runner().invoke(main, ["--version"]).output
+    assert _runner().invoke(main, ["--version"]).output == "kg 1.0.0\n"
 
 
 def test_query_help_shows_exact_options(tmp_path: Path) -> None:
