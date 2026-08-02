@@ -1,0 +1,34 @@
+# Contributing
+
+## Environment
+
+Use Python 3.11 or newer and uv. Dependencies are declared in
+`pyproject.toml`; install them with `uv sync --locked` (or `uv sync`).
+
+## Checks to run before submitting
+
+- Format and lint: `uv run ruff check .`
+- Type checks: `uv run mypy src`
+- Tests: `uv run pytest -q`
+- Build: `uv build`
+
+Run the full suite, not just changed tests, and keep the generated
+`uv.lock` in sync when touching dependencies. When you change
+distribution or packaging code, also run the package and installer
+tests: `uv run pytest tests/test_distribution_policy.py tests/test_installer.py -q`.
+
+## What not to add
+
+- No MCP server or MCP configuration; no runtime Node, CDN assets, or
+  extra graph formats.
+- No shell interpolation in subprocesses and no `0.0.0.0` binds; the
+  viz server is loopback-only.
+- No generated wiki content as canonical input; canonical Markdown notes
+  are authoritative, SQLite is derived and disposable.
+
+## Releasing
+
+Every release is gated on a live benchmark run: the fixed corpus and
+tasks must be measured through the configured harnesses, and any absent
+or `NOT_MEASURED` required cell blocks the release. See the benchmark
+notes under `bench/` and the CI/release workflows under `.github/`.
