@@ -24,16 +24,18 @@ def apply_proposal(vault: Vault, proposal_path: Path) -> dict[str, object]:
         proposal = Proposal.model_validate_json(proposal_path.read_text(encoding="utf-8"))
     except Exception as exc:
         raise ValueError(f"schema_validation: {exc}") from exc
+    brain = vault.brain
+    assert brain is not None
     with Lock(vault):
         validate_proposal(vault, proposal)
         staged: dict[str, tuple[Path, bytes]] = {}
         bodies = {note.id: note.body for note in proposal.notes}
         for note in proposal.notes:
-            target = vault.brain / "notes" / note.kind / f"{note.id}.md"
+            target = brain / "notes" / note.kind / f"{note.id}.md"
             staged[note.id] = (target, render_note(note, bodies[note.id]).encode("utf-8"))
         for target, data in staged.values():
             atomic_write(target, data)
-        db = vault.brain / ".kg" / "brain.sqlite"
+        db = brain / ".kg" / "brain.sqlite"
         db.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(db)
         migrate(conn)
@@ -48,7 +50,7 @@ def apply_proposal(vault: Vault, proposal_path: Path) -> dict[str, object]:
         conn.close()
         result = {"notes": len(proposal.notes), "edges": len(proposal.edges), "source_sha256": proposal.source_sha256}
         atomic_write(
-            vault.brain / ".kg" / "manifest.json",
+            brain / ".kg" / "manifest.json",
             json.dumps(result, sort_keys=True, separators=(",", ":")).encode(),
         )
         envelope = {"ok": True, "data": result}

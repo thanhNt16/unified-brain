@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import NoReturn
 
 import click
 
@@ -19,7 +20,7 @@ def _require_vault(root: Path | None = None, anchor: Path | None = None) -> Vaul
     return discover_vault(Path.cwd())
 
 
-def _emit(as_json: bool, envelope: dict[str, object], status: int) -> None:
+def _emit(as_json: bool, envelope: dict[str, object], status: int) -> NoReturn:
     if as_json:
         click.echo(json.dumps(envelope, allow_nan=False, separators=(",", ":")))
     else:
@@ -41,7 +42,7 @@ def init_command(root: Path, as_json: bool) -> None:
         vault = _require_vault(root)
         envelope: dict[str, object] = ok({"root": str(vault.brain)})
         status = 0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error("internal_error", str(exc))
         status = 1
     _emit(as_json, envelope, status)
@@ -60,7 +61,7 @@ def index_command(rebuild: bool, as_json: bool) -> None:
             envelope = ok(data)
         else:
             envelope = error("index_errors", f"{data['errors']} malformed notes", data)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error("internal_error", str(exc))
         status = 1
     _emit(as_json, envelope, status)
@@ -77,7 +78,7 @@ def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
         data = capture(vault, list(files))
         envelope = ok(data)
         status = 0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error("internal_error", str(exc))
         status = 1
     _emit(as_json, envelope, status)
@@ -94,7 +95,7 @@ def extract_command(proposal: Path, as_json: bool) -> None:
         data = extract(vault, proposal)
         envelope = ok(data)
         status = 0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error("internal_error", str(exc))
         status = 1
     _emit(as_json, envelope, status)
@@ -111,7 +112,7 @@ def apply_command(proposal: Path, as_json: bool) -> None:
         data = apply_proposal(vault, proposal)
         envelope = ok(data)
         status = 0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error("internal_error", str(exc))
         status = 1
     _emit(as_json, envelope, status)

@@ -30,8 +30,10 @@ def extract(vault: Vault, proposal_path: Path) -> dict[str, object]:
             raise ValueError("limit_error: proposal exceeds 500 notes or 2000 edges") from exc
         raise ValueError(f"schema_validation: {exc}") from exc
     validate_proposal(vault, proposal)
-    checkpoint = vault.brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.json"
-    preview = vault.brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.preview.md"
+    brain = vault.brain
+    assert brain is not None
+    checkpoint = brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.json"
+    preview = brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.preview.md"
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     atomic_write(checkpoint, proposal.model_dump_json(indent=2).encode())
     lines = [f"# Proposal {proposal.source_sha256}", "", f"Notes: {len(proposal.notes)}", f"Edges: {len(proposal.edges)}", ""]

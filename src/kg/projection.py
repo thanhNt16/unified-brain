@@ -72,12 +72,16 @@ def project_edge(conn: sqlite3.Connection, edge: Edge) -> None:
 
 
 def _note_paths(vault: Vault) -> list[Path]:
-    return sorted((vault.brain / "notes").glob("*/*.md"))
+    brain = vault.brain
+    assert brain is not None
+    return sorted((brain / "notes").glob("*/*.md"))
 
 
 def index_all(vault: Vault, conn: sqlite3.Connection) -> int:
     migrate(conn)
-    error_path = vault.brain / ".kg" / "index-errors.jsonl"
+    brain = vault.brain
+    assert brain is not None
+    error_path = brain / ".kg" / "index-errors.jsonl"
     error_path.parent.mkdir(parents=True, exist_ok=True)
     errors = 0
     with error_path.open("w", encoding="utf-8") as log:
@@ -94,7 +98,9 @@ def index_all(vault: Vault, conn: sqlite3.Connection) -> int:
 
 
 def rebuild(vault: Vault) -> dict[str, int]:
-    db = vault.brain / ".kg" / "brain.sqlite"
+    brain = vault.brain
+    assert brain is not None
+    db = brain / ".kg" / "brain.sqlite"
     db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db)
     migrate(conn)
@@ -122,7 +128,10 @@ def rebuild(vault: Vault) -> dict[str, int]:
 
 
 def project_proposal(conn: sqlite3.Connection, proposal: object, bodies: dict[str, str]) -> None:
-    for note in proposal.notes:
+    from .models import Proposal
+
+    validated = Proposal.model_validate(proposal)
+    for note in validated.notes:
         index_note(conn, note, bodies[note.id])
-    for edge in proposal.edges:
+    for edge in validated.edges:
         project_edge(conn, edge)
