@@ -29,6 +29,19 @@ def test_viz_group_has_two_commands():
     assert "serve" in p.stdout and "vendor" in p.stdout
 
 
+def test_root_cli_exposes_viz_group():
+    env = dict(os.environ, PYTHONPATH=str(REPO / "src"))
+    p = subprocess.run(
+        [sys.executable, "-m", "kg.cli", "--help"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert p.returncode == 0
+    assert "viz" in p.stdout
+
+
 def test_vendor_verify_reports_bundle():
     p = run_cli("vendor", "--version")
     assert p.returncode == 0

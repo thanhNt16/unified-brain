@@ -77,6 +77,7 @@ def apply_install(plan: InstallPlan) -> dict[str, int]:
     created_backups: list[Path] = []
     backups: list[tuple[Path, Path]] = []
     replaced: list[Path] = []
+    restored: set[Path] = set()
     try:
         for item in active:
             staged.append((item, _stage(item)))
@@ -94,42 +95,52 @@ def apply_install(plan: InstallPlan) -> dict[str, int]:
     except Exception:
         for path in replaced:
             path.unlink(missing_ok=True)
+        restored = set()
         for path, backup in reversed(backups):
             if backup.exists():
                 os.replace(backup, path)
+                restored.add(backup)
         raise
     finally:
         for _, stage in staged:
             stage.unlink(missing_ok=True)
         for backup in created_backups:
-            backup.unlink(missing_ok=True)
+            if backup not in restored:
+                backup.unlink(missing_ok=True)
     return {"created": sum(i.action == "create" for i in active), "replaced": sum(i.action == "replace" for i in active), "skipped": len(plan.items) - len(active)}
 
 
 def uninstall(root: Path) -> dict[str, int]:
     moved: list[tuple[Path, Path]] = []
     created_backups: list[Path] = []
+    restored: set[Path] = set()
     rendered = render_all(Path(root))
     try:
         for path in rendered:
-            if path.is_file() and _owned(path.read_text(encoding="utf-8"), rendered[path]):
-                fd, name = tempfile.mkstemp(prefix=".kg-backup-", dir=path.parent)
-                os.close(fd)
-                backup = Path(name)
-                created_backups.append(backup)
-                os.replace(path, backup)
-                moved.append((path, backup))
+            if not path.is_file():
+                continue
+            existing = path.read_text(encoding="utf-8")
+            if existing != rendered[path]:
+                continue
+            fd, name = tempfile.mkstemp(prefix=".kg-backup-", dir=path.parent)
+            os.close(fd)
+            backup = Path(name)
+            created_backups.append(backup)
+            os.replace(path, backup)
+            moved.append((path, backup))
     except Exception:
         for path, backup in reversed(moved):
             if backup.exists() and not path.exists():
                 try:
                     os.replace(backup, path)
+                    restored.add(backup)
                 except OSError:
                     pass
         raise
     finally:
         for backup in created_backups:
-            backup.unlink(missing_ok=True)
+            if backup not in restored:
+                backup.unlink(missing_ok=True)
     return {"removed": len(moved)}
 
 

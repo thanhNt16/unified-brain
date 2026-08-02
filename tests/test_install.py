@@ -101,6 +101,38 @@ def test_staging_failure_cleans_all_stages(tmp_path: Path, monkeypatch):
     assert not list(tmp_path.rglob(".kg-backup-*"))
 
 
+def test_failure_during_backup_restores_all_preexisting_files(tmp_path: Path, monkeypatch):
+    # Inject a failure mid-way through the backup phase. Every pre-existing file
+    # must survive byte-identically; no .kg-stage-* or .kg-backup-* residue may
+    # remain, and restored originals must never be unlinked.
+    apply_install(plan_install(tmp_path))
+    all_rendered = list(tmp_path.glob(".claude/skills/*")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
+    for path in all_rendered:
+        path.write_text(path.read_text() + "\n<!-- local edit -->\n")
+    before = {p: p.read_bytes() for p in all_rendered}
+    plan = plan_install(tmp_path, force=True)
+    real_replace = os.replace
+    calls = {"backup": 0}
+
+    def fail_second_backup(source, target):
+        if Path(source) in all_rendered and Path(target).name.startswith(".kg-backup-"):
+            calls["backup"] += 1
+            if calls["backup"] == 2:
+                raise OSError("injected backup failure")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", fail_second_backup)
+    try:
+        apply_install(plan)
+    except OSError as exc:
+        assert str(exc) == "injected backup failure"
+    else:
+        raise AssertionError("failure was swallowed")
+    assert {p: p.read_bytes() for p in before} == before
+    assert not list(tmp_path.rglob(".kg-stage-*"))
+    assert not list(tmp_path.rglob(".kg-backup-*"))
+
+
 def test_uninstall_failure_restores_removed_files(tmp_path: Path, monkeypatch):
     apply_install(plan_install(tmp_path))
     rendered = render_all(tmp_path)

@@ -82,6 +82,10 @@ def build_app(token: str, vault_root: Path, db_path: Path, port: int, wiki_dir: 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
+        def setup(self) -> None:
+            super().setup()
+            self.connection.settimeout(30.0)
+
         def log_message(self, fmt: str, *args: object) -> None:
             return
 
@@ -108,7 +112,11 @@ def build_app(token: str, vault_root: Path, db_path: Path, port: int, wiki_dir: 
             if not allowed_host(self.headers.get("Host", ""), port):
                 self._error(403, "forbidden host")
                 return False
-            if not allowed_origin(self.headers.get("Origin", ""), self.headers.get("Host", ""), port):
+            try:
+                origin_allowed = allowed_origin(self.headers.get("Origin", ""), self.headers.get("Host", ""), port)
+            except ValueError:
+                origin_allowed = False
+            if not origin_allowed:
                 self._error(403, "forbidden origin")
                 return False
             supplied = self.headers.get("X-Auth-Token", "")
@@ -210,6 +218,7 @@ class Server:
         self.token = token
         self.port = port
         self.thread: threading.Thread | None = None
+        self.timeout = 30
 
 
 def start(host: str, port: int, wiki_dir: Path | None = None, *, vault_root: Path, db_path: Path) -> Server:
@@ -217,6 +226,7 @@ def start(host: str, port: int, wiki_dir: Path | None = None, *, vault_root: Pat
         raise ValueError("loopback only")
     token = new_token()
     httpd = ThreadingHTTPServer(("127.0.0.1", port), BaseHTTPRequestHandler)
+    httpd.timeout = 30
     actual_port = int(httpd.server_address[1])
     httpd.RequestHandlerClass = build_app(token, vault_root, db_path, actual_port, wiki_dir)
     srv = Server(httpd, token, actual_port)

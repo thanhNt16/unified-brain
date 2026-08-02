@@ -114,6 +114,16 @@ def test_bad_origin_403():
         server.stop(srv)
 
 
+def test_malformed_origin_403():
+    vault_root, db = make_vault()
+    srv, tok = start_server(vault_root, db)
+    try:
+        code, _, _ = server.fetch(srv, "/api/layout", headers={**auth(tok), "Origin": "http://[::1"})
+        assert code == 403
+    finally:
+        server.stop(srv)
+
+
 def test_layout_csp_and_nosniff():
     vault_root, db = make_vault()
     srv, tok = start_server(vault_root, db)
