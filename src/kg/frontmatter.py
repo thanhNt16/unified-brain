@@ -1,3 +1,5 @@
+from typing import Any
+
 import yaml  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
@@ -11,6 +13,23 @@ class FrontmatterError(ValueError):
 _REQUIRED = {"id", "kind", "title", "created", "updated", "status", "source_sha256", "refs", "tags", "provenance"}
 
 
+class _UniqueKeyLoader(yaml.SafeLoader):
+    pass
+
+
+def _construct_mapping(loader: _UniqueKeyLoader, node: yaml.nodes.MappingNode, deep: bool = False) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError("while constructing a mapping", node.start_mark, "duplicate key", key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+
+
 def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     if not text.startswith("---\n"):
@@ -19,7 +38,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
     if end < 0:
         raise FrontmatterError("unterminated frontmatter")
     try:
-        value = yaml.safe_load(text[4:end])
+        value = yaml.load(text[4:end], Loader=_UniqueKeyLoader)
     except yaml.YAMLError as exc:
         raise FrontmatterError("invalid yaml") from exc
     if not isinstance(value, dict) or not _REQUIRED.issubset(value):

@@ -1,3 +1,4 @@
+import pytest
 from pydantic import ValidationError
 
 from kg.models import DreamOp, Edge, Note, NoteStatus, Proposal, ProposedDiff, Relation
@@ -48,5 +49,12 @@ def test_proposal_caps_and_edge_types() -> None:
 
 def test_dream_diff_strict_shape() -> None:
     op = DreamOp(op="drop", id=BASE["id"], reason="stale", evidence=["x"], pass_name="stale")
-    diff = ProposedDiff(id="df_1234567890abcdef", status="proposed", operations=[op])
-    assert diff.operations[0].pass_name == "stale"
+    diff = ProposedDiff(id="df_1234567890abcdef", status="proposed", ops=[op])
+    assert diff.ops[0].pass_name == "stale"
+
+
+def test_open_q_pass_name_and_ops_key_required() -> None:
+    op = DreamOp(op="drop", id=BASE["id"], reason="question", evidence=[], pass_name="open_q")
+    assert ProposedDiff(id="df_1234567890abcdef", status="proposed", ops=[op]).ops[0].pass_name == "open_q"
+    with pytest.raises(ValidationError):
+        ProposedDiff(id="df_1234567890abcdef", status="proposed", operations=[op])

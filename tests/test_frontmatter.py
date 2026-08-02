@@ -36,3 +36,25 @@ def test_malformed_or_missing_keys_rejected() -> None:
         parse_frontmatter("not markdown")
     with pytest.raises(FrontmatterError):
         parse_frontmatter("---\nid: nt_1234567890abcdef\n---\n")
+
+
+def test_duplicate_yaml_keys_rejected() -> None:
+    duplicate = "---\n" + "\n".join(
+        [
+            "id: nt_1234567890abcdef",
+            "kind: concept",
+            "title: First",
+            "title: Second",
+            "created: 2026-08-02T00:00:00Z",
+            "updated: 2026-08-02T00:00:00Z",
+            "status: draft",
+            "source_sha256: " + "a" * 64,
+            "refs: []",
+            "tags: []",
+            "provenance: []",
+            "---",
+            "",
+        ]
+    )
+    with pytest.raises(FrontmatterError, match="invalid yaml"):
+        parse_frontmatter(duplicate)

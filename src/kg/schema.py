@@ -10,10 +10,13 @@ MIGRATIONS = OrderedDict(
 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notes(id TEXT PRIMARY KEY, kind TEXT NOT NULL, type TEXT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', tags_json TEXT NOT NULL, frontmatter_json TEXT NOT NULL, status TEXT NOT NULL, supersedes TEXT, source_sha256 TEXT NOT NULL, created TEXT NOT NULL, updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS edges(src TEXT NOT NULL, dst TEXT NOT NULL, relation TEXT NOT NULL, confidence REAL NOT NULL, evidence TEXT, PRIMARY KEY(src, relation, dst));
-CREATE TABLE IF NOT EXISTS notes_fts(rowid INTEGER PRIMARY KEY, title, body);
+CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, body, content='notes', content_rowid='rowid');
+CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN INSERT INTO notes_fts(rowid,title,body) VALUES (new.rowid,new.title,new.body); END;
+CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN INSERT INTO notes_fts(notes_fts,rowid,title,body) VALUES ('delete',old.rowid,old.title,old.body); END;
+CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN INSERT INTO notes_fts(notes_fts,rowid,title,body) VALUES ('delete',old.rowid,old.title,old.body); INSERT INTO notes_fts(rowid,title,body) VALUES (new.rowid,new.title,new.body); END;
 CREATE TABLE IF NOT EXISTS vec_features(feature INTEGER NOT NULL, note_id TEXT NOT NULL, weight REAL NOT NULL, PRIMARY KEY(feature, note_id));
 CREATE TABLE IF NOT EXISTS doc_norms(note_id TEXT PRIMARY KEY, l2 REAL NOT NULL);
-CREATE TABLE IF NOT EXISTS deleted_notes(id TEXT PRIMARY KEY, reason TEXT NOT NULL, diff_id TEXT NOT NULL, ts REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS deleted_notes(id TEXT PRIMARY KEY, reason TEXT NOT NULL, diff_id TEXT, ts REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS notes_status_idx ON notes(status);
 CREATE INDEX IF NOT EXISTS notes_source_idx ON notes(source_sha256);
 CREATE INDEX IF NOT EXISTS edges_src_idx ON edges(src);

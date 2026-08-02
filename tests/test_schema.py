@@ -21,3 +21,31 @@ def test_newer_database_refused() -> None:
     c.commit()
     with pytest.raises(RuntimeError, match="db_schema_newer"):
         migrate(c)
+
+
+def test_notes_fts_is_external_content_fts5_with_triggers() -> None:
+    c = sqlite3.connect(":memory:")
+    migrate(c)
+    sql = c.execute("select sql from sqlite_master where name='notes_fts'").fetchone()[0]
+    assert sql.startswith("CREATE VIRTUAL TABLE")
+    assert "USING fts5(" in sql and "content='notes'" in sql and "content_rowid='rowid'" in sql
+    triggers = {row[0] for row in c.execute("select name from sqlite_master where type='trigger'")}
+    assert {"notes_ai", "notes_ad", "notes_au"} <= triggers
+    c.execute(
+        "insert into notes(id,kind,title,body,tags_json,frontmatter_json,status,source_sha256,created,updated) "
+        "values(?,?,?,?,?,?,?,?,?,?)",
+        ("nt_0000000000000000", "concept", "Alpha", "beta body", "[]", "{}", "draft", "a" * 64, "2026-01-01", "2026-01-01"),
+    )
+    assert c.execute("select title from notes_fts where notes_fts match 'beta'").fetchone()[0] == "Alpha"
+
+
+def test_deleted_notes_diff_id_nullable() -> None:
+    c = sqlite3.connect(":memory:")
+    migrate(c)
+    column = next(col for col in c.execute("pragma table_info(deleted_notes)") if col[1] == "diff_id")
+    assert column[3] == 0
+    c.execute(
+        "insert into deleted_notes(id,reason,diff_id,ts) values('nt_0000000000000000','x',NULL,'2026-01-01')"
+    )
+    assert c.execute("select diff_id from deleted_notes").fetchone()[0] is None
+

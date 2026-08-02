@@ -22,4 +22,4 @@ def edge_id(src: str, relation: str, dst: str) -> str:
 
 
 def diff_id(content: Any) -> str:
-    return "en_" + _digest(json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    return "df_" + _digest(json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
