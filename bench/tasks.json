@@ -1,0 +1,1 @@
+{"tasks":[{"id":"capture","prompt":"Use the fixed corpus to capture one source and report the resulting kg operation as JSON.","expected":"successful kg ingest","timeout_s":900},{"id":"retrieve","prompt":"Use the fixed corpus to answer the linked-note query and report the kg query result as JSON.","expected":"successful kg query","timeout_s":900}]}
