@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unified-brain-kg"
+version = "1.0.0"
+description = "Offline local-first knowledge graph toolkit"
+requires-python = ">=3.11"
+dependencies = ["click>=8.1,<9", "pydantic>=2.7,<3", "PyYAML>=6,<7"]
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "ruff>=0.8,<1", "mypy>=1.13,<2"]
+
+[project.scripts]
+kg = "kg.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
