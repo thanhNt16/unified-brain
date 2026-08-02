@@ -56,6 +56,22 @@ class VaultPaths:
     def contract_log(self) -> Path:
         return self.contract  # type: ignore[return-value]
 
+    def live_note_ids(self) -> set[str]:
+        """All non-tombstone, non-superseded note IDs from canonical Markdown."""
+        ids: set[str] = set()
+        notes = self.notes
+        assert notes is not None
+        for path in notes.glob("*/*.md"):
+            line = path.read_text(encoding="utf-8").splitlines()
+            status = next((s.split(": ", 1)[1].strip() for s in line if s.startswith("status:")), "draft")
+            if status in {"tombstone", "superseded"}:
+                continue
+            for s in line:
+                if s.startswith("id:"):
+                    ids.add(s.split(": ", 1)[1].strip())
+                    break
+        return ids
+
 
 Vault = VaultPaths
 
