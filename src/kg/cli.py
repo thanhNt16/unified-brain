@@ -28,6 +28,7 @@ _CODE_PREFIXES: dict[str, ErrorCodes] = {
     "not_initialized": ErrorCodes.not_initialized,
     "diff_path": ErrorCodes.diff_path,
     "diff_state": ErrorCodes.diff_state,
+    "not_found": ErrorCodes.not_found,
 }
 
 
@@ -56,6 +57,21 @@ def _code_of(exc: Exception) -> ErrorCodes:
     message = str(exc)
     prefix = message.split(":", 1)[0]
     return _CODE_PREFIXES.get(prefix, ErrorCodes.internal_error)
+
+
+def _existing(path: Path | None, label: str) -> Path:
+    if path is None or not path.exists():
+        raise ValueError(f"not_found: {label} does not exist")
+    return path
+
+
+def _install_code(exc: install_module.InstallError) -> ErrorCodes:
+    message = str(exc)
+    if message.startswith("refusing unowned overwrite"):
+        return ErrorCodes.forbidden
+    if message.startswith("overwrite requires --force"):
+        return ErrorCodes.limit_error
+    return ErrorCodes.path_forbidden
 
 
 @click.group()
@@ -124,10 +140,13 @@ def index_command(rebuild: bool, as_json: bool) -> None:
 
 
 @main.command("ingest")
-@click.argument("files", nargs=-1, type=click.Path(path_type=Path, exists=True), required=True)
+@click.argument("files", nargs=-1, type=click.Path(path_type=Path))
 @click.option("--json", "as_json", is_flag=True)
 def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
     try:
+        if not files:
+            raise ValueError("limit_error: at least one file is required")
+        files = tuple(_existing(path, "file") for path in files)
         vault = _require_vault(anchor=files[0])
         from .ingest import capture
 
@@ -142,10 +161,11 @@ def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
 
 
 @main.command("extract")
-@click.argument("proposal", type=click.Path(path_type=Path, exists=True))
+@click.argument("proposal", type=click.Path(path_type=Path))
 @click.option("--json", "as_json", is_flag=True)
 def extract_command(proposal: Path, as_json: bool) -> None:
     try:
+        proposal = _existing(proposal, "proposal")
         vault = _require_vault(anchor=proposal)
         from .extract import extract
 
@@ -161,11 +181,11 @@ def extract_command(proposal: Path, as_json: bool) -> None:
 
 @main.command("query")
 @click.argument("query")
-@click.option("--strategy", default="adaptive", type=click.Choice(["adaptive", "lexical"]))
-@click.option("--hops", default=2, type=int)
+@click.option("--strategy", default="adaptive")
+@click.option("--hops", default="2", type=str)
 @click.option("--relations", default="causes,depends_on,related_to")
-@click.option("--direction", default="both", type=click.Choice(["both", "in", "out"]))
-@click.option("--limit", default=20, type=int)
+@click.option("--direction", default="both")
+@click.option("--limit", default="20", type=str)
 @click.option("--context", is_flag=True)
 @click.option("--json", "as_json", is_flag=True)
 def query_command(
@@ -179,6 +199,14 @@ def query_command(
     as_json: bool,
 ) -> None:
     try:
+        try:
+            hops = int(hops)
+        except ValueError:
+            raise ValueError("limit_error: hops must be an integer") from None
+        try:
+            limit = int(limit)
+        except ValueError:
+            raise ValueError("limit_error: limit must be an integer") from None
         rels = tuple(r.strip() for r in relations.split(",") if r.strip())
         try:
             retrieval_module.validate_query_params(hops, direction, limit, rels, strategy)
@@ -206,9 +234,18 @@ def query_command(
             conn.close()
         envelope = ok(data)
         status = 0
+        args: dict[str, object] = {
+            "query": query,
+            "strategy": strategy,
+            "hops": hops,
+            "relations": relations,
+            "direction": direction,
+            "limit": limit,
+            "context": context,
+        }
         from .storage import contract_log
 
-        contract_log(vault, "kg", "query", {"query": query}, envelope, data)
+        contract_log(vault, "kg", "query", args, envelope, data)
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
         status = 1
@@ -260,7 +297,14 @@ def dream_command(passes: str, out_path: Path | None, as_json: bool) -> None:
         status = 0
         from .storage import contract_log
 
-        contract_log(vault, "kg", "dream", {"passes": list(requested)}, envelope, data)
+        contract_log(
+            vault,
+            "kg",
+            "dream",
+            {"passes": list(requested), "out": str(out_path) if out_path is not None else None},
+            envelope,
+            data,
+        )
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
         status = 1
@@ -268,25 +312,20 @@ def dream_command(passes: str, out_path: Path | None, as_json: bool) -> None:
 
 
 @main.command("review")
-@click.argument("diff", type=click.Path(path_type=Path, exists=True))
+@click.argument("diff", type=click.Path(path_type=Path))
 @click.option("--approve", is_flag=True)
 @click.option("--reject", is_flag=True)
 @click.option("--json", "as_json", is_flag=True)
 def review_command(diff: Path, approve: bool, reject: bool, as_json: bool) -> None:
-    if approve and reject:
-        envelope = error(ErrorCodes.limit_error, "--approve and --reject are mutually exclusive")
-        _emit(as_json, envelope, 2)
-        return
     try:
+        if approve and reject:
+            raise ValueError("limit_error: --approve and --reject are mutually exclusive")
+        diff = _existing(diff, "diff")
         action = "approve" if approve else ("reject" if reject else None)
         vault = _require_vault(anchor=diff)
         data = review_module.review(vault, diff, action=action)
         envelope = ok(data)
         status = 0
-        from .storage import contract_log
-
-        if action is not None:
-            contract_log(vault, "kg", "review", {"diff": str(diff), "action": action}, envelope, data)
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
         status = 1
@@ -315,7 +354,7 @@ def install_command(root_path: Path, do_apply: bool, do_uninstall: bool, force: 
         envelope = ok(data)
         status = 0
     except install_module.InstallError as exc:
-        envelope = error(ErrorCodes.path_forbidden, str(exc))
+        envelope = error(_install_code(exc), str(exc))
         status = 1
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
@@ -324,10 +363,11 @@ def install_command(root_path: Path, do_apply: bool, do_uninstall: bool, force: 
 
 
 @main.command("apply")
-@click.argument("proposal", type=click.Path(path_type=Path, exists=True))
+@click.argument("proposal", type=click.Path(path_type=Path))
 @click.option("--json", "as_json", is_flag=True)
 def apply_command(proposal: Path, as_json: bool) -> None:
     try:
+        proposal = _existing(proposal, "proposal")
         vault = _require_vault(anchor=proposal)
         from .apply import apply_proposal
 

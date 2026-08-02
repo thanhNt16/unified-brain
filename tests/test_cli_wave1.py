@@ -140,10 +140,100 @@ def test_query_validation_before_db(tmp_path: Path) -> None:
     assert not (tmp_path / ".brain").exists()
 
 
+def test_query_non_integer_limit_and_hops_are_limit_error(tmp_path: Path) -> None:
+    runner = _runner()
+    for args in (["--limit", "abc"], ["--hops", "two"]):
+        result = runner.invoke(main, ["query", "x", *args, "--json"])
+        assert result.exit_code == 1
+        env = _env(result.output)
+        assert env["ok"] is False
+        assert env["error"]["code"] == "limit_error"
+
+
+def test_query_full_args_in_contract_row(tmp_path: Path, monkeypatch) -> None:
+    root = _vault_with_note(tmp_path)
+    monkeypatch.chdir(root)
+    result = _runner().invoke(main, ["query", "Alpha", "--strategy", "lexical", "--hops", "1", "--limit", "5", "--json"])
+    assert result.exit_code == 0
+    rows = [
+        json.loads(line)
+        for line in (root / ".brain" / ".kg" / "contract.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    args = rows[-1]["args"]
+    assert args["query"] == "Alpha"
+    assert args["strategy"] == "lexical"
+    assert args["hops"] == 1
+    assert args["relations"] == "causes,depends_on,related_to"
+    assert args["direction"] == "both"
+    assert args["limit"] == 5
+    assert args["context"] is False
+
+
+def test_review_nonexistent_diff_is_not_found_json(tmp_path: Path) -> None:
+    result = _runner().invoke(main, ["review", str(tmp_path / "nope.json"), "--json"])
+    assert result.exit_code == 1
+    env = _env(result.output)
+    assert env["ok"] is False
+    assert env["error"]["code"] == "not_found"
+
+
+def test_ingest_nonexistent_file_is_not_found_json(tmp_path: Path) -> None:
+    result = _runner().invoke(main, ["ingest", str(tmp_path / "nope.txt"), "--json"])
+    assert result.exit_code == 1
+    env = _env(result.output)
+    assert env["ok"] is False
+    assert env["error"]["code"] == "not_found"
+
+
+def test_ingest_requires_at_least_one_file(tmp_path: Path) -> None:
+    result = _runner().invoke(main, ["ingest", "--json"])
+    assert result.exit_code == 1
+    assert _env(result.output)["error"]["code"] == "limit_error"
+
+
+def test_apply_nonexistent_proposal_is_not_found_json(tmp_path: Path) -> None:
+    result = _runner().invoke(main, ["apply", str(tmp_path / "nope.json"), "--json"])
+    assert result.exit_code == 1
+    assert _env(result.output)["error"]["code"] == "not_found"
+
+
+def test_install_force_required_is_limit_error(tmp_path: Path) -> None:
+    root = tmp_path / "harness"
+    assert _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"]).exit_code == 0
+    # Drift an owned file so the next plan demands --force.
+    target = root / ".claude" / "skills" / "kg-init.md"
+    target.write_text(target.read_text().replace("Initialize", "Changed"), encoding="utf-8")
+    result = _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"])
+    assert result.exit_code == 1
+    env = _env(result.output)
+    assert env["ok"] is False
+    assert env["error"]["code"] == "limit_error"
+    # The drifted file survives an unforced failed apply.
+    assert "Changed" in target.read_text()
+
+
+def test_install_unowned_overwrite_is_forbidden(tmp_path: Path) -> None:
+    root = tmp_path / "harness"
+    target = root / ".claude" / "skills" / "kg-init.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("user content\n", encoding="utf-8")
+    result = _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"])
+    assert result.exit_code == 1
+    env = _env(result.output)
+    assert env["ok"] is False
+    assert env["error"]["code"] == "forbidden"
+    assert target.read_text() == "user content\n"
+
+
 def test_query_unknown_direction_and_strategy_rejected(tmp_path: Path) -> None:
     runner = _runner()
-    assert runner.invoke(main, ["query", "x", "--direction", "sideways", "--json"]).exit_code == 2
-    assert runner.invoke(main, ["query", "x", "--strategy", "magic", "--json"]).exit_code == 2
+    for args in (["--direction", "sideways"], ["--strategy", "magic"]):
+        result = runner.invoke(main, ["query", "x", *args, "--json"])
+        assert result.exit_code == 1
+        env = _env(result.output)
+        assert env["ok"] is False
+        assert env["error"]["code"] == "limit_error"
 
 
 def test_query_lexical_strategy_and_json_absent(tmp_path: Path, monkeypatch) -> None:
@@ -194,6 +284,14 @@ def test_dream_out_inside_dreams_and_json_absent(tmp_path: Path, monkeypatch) ->
     result = _runner().invoke(main, ["dream", "--out", str(target), "--passes", "dedup"])
     assert result.exit_code == 0
     assert json.loads(target.read_text())["status"] == "proposed"
+    rows = [
+        json.loads(line)
+        for line in (root / ".brain" / ".kg" / "contract.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert rows[-1]["cmd"] == "dream"
+    assert rows[-1]["args"]["passes"] == ["dedup"]
+    assert rows[-1]["args"]["out"] == str(target)
 
 
 def test_dream_out_outside_dreams_is_path_forbidden(tmp_path: Path, monkeypatch) -> None:
@@ -226,7 +324,7 @@ def test_review_flags_mutually_exclusive(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     diff_path = _env(runner.invoke(main, ["dream", "--passes", "orphan", "--json"]).output)["data"]["path"]
     result = runner.invoke(main, ["review", diff_path, "--approve", "--reject", "--json"])
-    assert result.exit_code == 2
+    assert result.exit_code == 1
     assert _env(result.output)["error"]["code"] == "limit_error"
 
 
@@ -245,6 +343,23 @@ def test_review_approve_and_reject_flow(tmp_path: Path, monkeypatch) -> None:
     assert _env(again.output)["data"]["applied"] == 0
     assert _env(again.output)["data"]["status"] == "rejected"
     assert (root / ".brain" / "notes" / "concept" / "nt_aaaaaaaaaaaaaaaa.md").exists()
+
+
+def test_review_approve_logs_single_row_with_action(tmp_path: Path, monkeypatch) -> None:
+    root = _vault_with_note(tmp_path)
+    monkeypatch.chdir(root)
+    runner = _runner()
+    diff_path = _env(runner.invoke(main, ["dream", "--passes", "orphan", "--json"]).output)["data"]["path"]
+    assert runner.invoke(main, ["review", diff_path, "--approve", "--json"]).exit_code == 0
+    rows = [
+        json.loads(line)
+        for line in (root / ".brain" / ".kg" / "contract.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    review_rows = [row for row in rows if row["cmd"] == "review"]
+    assert len(review_rows) == 1
+    assert review_rows[0]["args"] == {"diff": Path(diff_path).stem, "action": "approve"}
+    assert review_rows[0]["ok"] is True
 
 
 def test_review_path_and_state_errors(tmp_path: Path, monkeypatch) -> None:
