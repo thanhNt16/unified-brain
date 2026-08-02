@@ -12,6 +12,7 @@ from . import install as install_module
 from . import retrieval as retrieval_module
 from . import review as review_module
 from .envelope import ErrorCodes, error, ok
+from .release import VERSION
 from .storage import Vault, discover_vault
 from .viz.cli import viz_group
 
@@ -77,7 +78,7 @@ def _install_code(exc: install_module.InstallError) -> ErrorCodes:
 
 
 @click.group()
-@click.version_option(version="1.0.0", prog_name="kg")
+@click.version_option(version=VERSION, prog_name="kg", message="%(prog)s %(version)s")
 def main() -> None:
     """Local-first knowledge graph toolkit."""
 
