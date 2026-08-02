@@ -75,10 +75,10 @@ class DreamOp(Strict):
     id: str = Field(min_length=1)
     reason: str = Field(min_length=1)
     evidence: list[str] = Field(default_factory=list)
-    pass_name: Literal["dedup", "contradiction", "supersede", "stale", "orphan", "open_q", "community"]
+    pass_name: Literal["dedup", "contradiction", "supersede", "stale", "orphan", "open-q", "community"]
 
 
 class ProposedDiff(Strict):
     id: str = Field(pattern=r"^df_[0-9a-f]{16}$")
     status: Literal["proposed", "approved", "rejected"]
-    ops: list[DreamOp] = Field(default_factory=list, max_length=500)
+    operations: list[DreamOp] = Field(default_factory=list, max_length=500)
