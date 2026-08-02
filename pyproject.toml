@@ -17,7 +17,29 @@ kg = "kg.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kg"]
-force-include = {"templates/skills" = "templates/skills"}
+artifacts = [
+    "src/kg/viz/assets/index.html",
+    "src/kg/viz/assets/LICENSE.upstream",
+    "src/kg/viz/assets/PROVENANCE.md",
+    "src/kg/viz/assets/THIRD_PARTY.upstream.md",
+    "src/kg/viz/assets/assets/*",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/kg", "templates"]
+artifacts = [
+    "src/kg/viz/assets/index.html",
+    "src/kg/viz/assets/LICENSE.upstream",
+    "src/kg/viz/assets/PROVENANCE.md",
+    "src/kg/viz/assets/THIRD_PARTY.upstream.md",
+    "src/kg/viz/assets/assets/*",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"templates/skills" = "templates/skills"
+"src/kg/viz/assets/LICENSE.upstream" = "src/kg/viz/assets/LICENSE.upstream"
+"src/kg/viz/assets/PROVENANCE.md" = "src/kg/viz/assets/PROVENANCE.md"
+"src/kg/viz/assets/THIRD_PARTY.upstream.md" = "src/kg/viz/assets/THIRD_PARTY.upstream.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
