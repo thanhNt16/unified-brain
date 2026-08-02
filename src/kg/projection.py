@@ -1,37 +1,17 @@
 from __future__ import annotations
 
 import json
-import math
-import re
 import sqlite3
-import zlib
-from collections import defaultdict
 from pathlib import Path
-from typing import Final
 
 from .frontmatter import parse_note
+from .hashbow import DIM, extract, l2
 from .models import Edge, Note
 from .schema import migrate
 from .storage import Vault
 
-DIM: Final[int] = 16384
-_WORD = re.compile(r"[a-z0-9]+")
-
-
-def hashbow_features(text: str) -> dict[int, float]:
-    """hashbow-v1 sparse features: word unigrams (+1) and char trigrams (sign alternates)."""
-    words = _WORD.findall(text.lower())
-    vec: dict[int, float] = defaultdict(float)
-    for word in words:
-        vec[zlib.crc32(word.encode()) % DIM] += 1.0
-    for word in words:
-        padded = f"#{word}#"
-        for i in range(len(padded) - 2):
-            trigram = padded[i : i + 3]
-            bucket = zlib.crc32(trigram.encode()) % DIM
-            sign = 1.0 if (zlib.crc32(trigram.encode()) & 1) == 0 else -1.0
-            vec[bucket] += sign
-    return {feature: weight for feature, weight in vec.items() if weight}
+__all__ = ["DIM", "extract", "hashbow_features", "index_all", "index_note", "project_edge", "project_proposal", "rebuild"]
+hashbow_features = extract
 
 
 def index_note(conn: sqlite3.Connection, note: Note, body: str) -> None:
@@ -47,8 +27,8 @@ def index_note(conn: sqlite3.Connection, note: Note, body: str) -> None:
     )
     conn.execute("delete from vec_features where note_id=?", (note.id,))
     conn.execute("delete from doc_norms where note_id=?", (note.id,))
-    values = hashbow_features(note.title + " " + body)
-    norm = math.sqrt(sum(value * value for value in values.values()))
+    values = extract(note.title + " " + body)
+    norm = l2(values)
     conn.executemany(
         "insert into vec_features(feature,note_id,weight) values(?,?,?)",
         ((feature, note.id, value) for feature, value in values.items()),
@@ -84,12 +64,19 @@ def index_all(vault: Vault, conn: sqlite3.Connection) -> int:
     error_path = brain / ".kg" / "index-errors.jsonl"
     error_path.parent.mkdir(parents=True, exist_ok=True)
     errors = 0
+    paths = _note_paths(vault)
+    # Plain kg index must converge: purge projection rows for canonical notes that
+    # were removed or are currently malformed before re-inserting the survivors.
+    conn.execute("delete from vec_features")
+    conn.execute("delete from doc_norms")
+    conn.execute("delete from deleted_notes")
+    conn.execute("delete from notes")
     with error_path.open("w", encoding="utf-8") as log:
-        for path in _note_paths(vault):
+        for path in paths:
             try:
                 note, body = parse_note(path.read_text(encoding="utf-8"))
                 index_note(conn, note, body)
-            except (UnicodeDecodeError, ValueError, TypeError, KeyError) as exc:
+            except (UnicodeDecodeError, ValueError, TypeError, KeyError, sqlite3.Error) as exc:
                 errors += 1
                 log.write(json.dumps({"code": "parse_error", "path": str(path), "message": str(exc)}, sort_keys=True) + "\n")
     conn.commit()

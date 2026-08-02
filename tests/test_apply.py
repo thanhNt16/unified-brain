@@ -62,6 +62,10 @@ def test_projection_failure_leaves_canonical_note_for_rebuild(
         "project_proposal",
         lambda *args: (_ for _ in ()).throw(sqlite3.OperationalError("injected")),
     )
-    with pytest.raises(sqlite3.OperationalError):
+    with pytest.raises(ValueError, match="index_errors: run kg index --rebuild"):
         apply_proposal(vault, path)
     assert (tmp_path / ".brain" / "notes" / "concept" / "nt_aaaaaaaaaaaaaaaa.md").exists()
+    assert sqlite3.connect(tmp_path / ".brain" / ".kg" / "brain.sqlite").execute(
+        "select count(*) from notes where id='nt_aaaaaaaaaaaaaaaa'"
+    ).fetchone()[0] == 0
+    assert __import__("kg.projection", fromlist=["rebuild"]).rebuild(vault)["notes"] == 1

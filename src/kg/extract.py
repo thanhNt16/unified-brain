@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .models import Proposal
-from .storage import Registry, Vault, atomic_write
+from .storage import Lock, Registry, Vault, atomic_write
 
 
 def validate_proposal(vault: Vault, proposal: Proposal) -> Proposal:
@@ -35,10 +35,11 @@ def extract(vault: Vault, proposal_path: Path) -> dict[str, object]:
     checkpoint = brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.json"
     preview = brain / ".kg" / "checkpoints" / f"{proposal.source_sha256}.preview.md"
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write(checkpoint, proposal.model_dump_json(indent=2).encode())
-    lines = [f"# Proposal {proposal.source_sha256}", "", f"Notes: {len(proposal.notes)}", f"Edges: {len(proposal.edges)}", ""]
-    lines.extend(f"- {note.id}: {note.title}" for note in proposal.notes)
-    atomic_write(preview, ("\n".join(lines) + "\n").encode())
+    with Lock(vault):
+        atomic_write(checkpoint, proposal.model_dump_json(indent=2).encode())
+        lines = [f"# Proposal {proposal.source_sha256}", "", f"Notes: {len(proposal.notes)}", f"Edges: {len(proposal.edges)}", ""]
+        lines.extend(f"- {note.id}: {note.title}" for note in proposal.notes)
+        atomic_write(preview, ("\n".join(lines) + "\n").encode())
     return {
         "source_sha256": proposal.source_sha256,
         "notes": len(proposal.notes),

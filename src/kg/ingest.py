@@ -8,6 +8,10 @@ from pathlib import Path
 from .storage import Lock, Registry, Vault, atomic_write
 
 
+def _safe_suffix(suffix: str) -> str:
+    return re.sub(r"[^a-z0-9.]+", "", suffix.lower().lstrip("."))[:24] or "bin"
+
+
 def capture(vault: Vault, paths: Sequence[Path]) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     brain = vault.brain
@@ -19,10 +23,15 @@ def capture(vault: Vault, paths: Sequence[Path]) -> list[dict[str, object]]:
             source = Path(source)
             if source.is_symlink() or not source.is_file():
                 raise ValueError("path_forbidden: regular files only")
-            data = source.read_bytes()
+            try:
+                data = source.read_bytes()
+            except OSError as exc:
+                raise ValueError(f"path_forbidden: unreadable: {source}") from exc
             digest = hashlib.sha256(data).hexdigest()
-            suffix = re.sub(r"[^a-z0-9]+", "", source.suffix.lower().lstrip(".")) or "bin"
+            suffix = _safe_suffix(source.suffix)
             raw = brain / "raw" / f"sha256.{digest}.{suffix}"
+            if raw.exists() and raw.read_bytes() != data:
+                raise ValueError("path_forbidden: raw object corrupted; refused to rewrite")
             deduped = registry.contains(digest)
             if not raw.exists():
                 atomic_write(raw, data)

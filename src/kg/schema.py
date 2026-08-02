@@ -49,9 +49,11 @@ CREATE INDEX IF NOT EXISTS edges_relation_idx ON edges(relation);
 
 
 def _repair_legacy_fts(conn: sqlite3.Connection) -> None:
-    row = conn.execute("SELECT type FROM sqlite_master WHERE name='notes_fts'").fetchone()
-    if row and row[0] == "table":
+    row = conn.execute("SELECT type, sql FROM sqlite_master WHERE name='notes_fts'").fetchone()
+    if row and row[0] == "table" and not (row[1] or "").upper().startswith("CREATE VIRTUAL TABLE"):
         conn.execute("DROP TABLE notes_fts")
+    elif row and row[0] == "table" and (row[1] or "").upper().startswith("CREATE VIRTUAL TABLE"):
+        conn.executescript(_FTS5_TRIGGERS)
     conn.execute(
         "CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, body, content='notes', content_rowid='rowid')"
     )

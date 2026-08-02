@@ -43,10 +43,10 @@ def apply_proposal(vault: Vault, proposal_path: Path) -> dict[str, object]:
             conn.execute("BEGIN")
             project_proposal(conn, proposal, bodies)
             conn.commit()
-        except Exception:
+        except Exception as exc:
             conn.rollback()
             conn.close()
-            raise
+            raise ValueError("index_errors: run kg index --rebuild") from exc
         conn.close()
         result = {"notes": len(proposal.notes), "edges": len(proposal.edges), "source_sha256": proposal.source_sha256}
         atomic_write(

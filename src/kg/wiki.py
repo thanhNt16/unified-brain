@@ -24,9 +24,18 @@ def generate(vault: Vault) -> dict[str, int]:
         directory.mkdir(parents=True, exist_ok=True)
     rows = ["# Knowledge Graph", "", "## Notes", ""]
     for note, _ in notes:
-        rows.append(f"- [{note.title}]({note.kind}s/{note.id}.md) — `{note.id}` — {note.status}")
-        target_dir = wiki / ("entities" if note.kind == "entity" else "summaries" if note.kind == "summary" else "concepts")
-        atomic_write(target_dir / f"{note.id}.md", f"# {note.title}\n\nID: `{note.id}`\n\nStatus: {note.status}\n".encode())
+        target = "entities" if note.kind == "entity" else "summaries" if note.kind == "summary" else "concepts"
+        rows.append(f"- [{note.title}]({target}/{note.id}.md) — `{note.id}` — {note.status.value}")
+        target_dir = wiki / target
+        atomic_write(target_dir / f"{note.id}.md", f"# {note.title}\n\nID: `{note.id}`\n\nStatus: {note.status.value}\n".encode())
     atomic_write(wiki / "index.md", ("\n".join(rows) + "\n").encode())
-    atomic_write(wiki / "log.md", b"# Change Log\n\nGenerated from canonical status history.\n")
+    # log.md derives from the canonical status history: current statuses and
+    # supersedes chains, not an external journal.
+    history = ["# Change Log", "", "Status history derived from canonical notes:", ""]
+    for note, _ in notes:
+        line = f"- {note.updated} `{note.id}` — {note.status.value}"
+        if note.supersedes:
+            line += f" (supersedes {note.supersedes})"
+        history.append(line)
+    atomic_write(wiki / "log.md", ("\n".join(history) + "\n").encode())
     return {"notes": len(notes)}
