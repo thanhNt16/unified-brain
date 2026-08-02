@@ -174,8 +174,13 @@ def build_app(token: str, vault_root: Path, db_path: Path, port: int, wiki_dir: 
                 if target is None or not target.is_file():
                     self._error(404, "not found")
                     return
+                try:
+                    payload = target.read_bytes()
+                except OSError:
+                    self._error(404, "not found")
+                    return
                 suffix_types = {".html": "text/html", ".js": "application/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
-                self._send(200, target.read_bytes(), content_type=suffix_types.get(target.suffix, "application/octet-stream"), **{"Content-Security-Policy": CSP})
+                self._send(200, payload, content_type=suffix_types.get(target.suffix, "application/octet-stream"), **{"Content-Security-Policy": CSP})
             except Exception:  # noqa: BLE001 - handler boundary; never leak tracebacks
                 self._error(500, "internal error")
 

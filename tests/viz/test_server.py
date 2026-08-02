@@ -208,6 +208,22 @@ def test_path_traversal_rejected():
         server.stop(srv)
 
 
+def test_static_read_failure_404(monkeypatch):
+    vault_root, db = make_vault()
+    srv, tok = start_server(vault_root, db)
+    try:
+
+        def boom(self):
+            raise OSError("injected read failure")
+
+        monkeypatch.setattr(Path, "read_bytes", boom)
+        code, _, body = server.fetch(srv, "/", headers=auth(tok))
+        assert code == 404
+        assert b"error" in body
+    finally:
+        server.stop(srv)
+
+
 def test_static_spa_fallback_404():
     vault_root, db = make_vault()
     srv, tok = start_server(vault_root, db)

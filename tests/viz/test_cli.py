@@ -34,3 +34,14 @@ def test_vendor_verify_reports_bundle():
     assert p.returncode == 0
     assert "commit: d6be58ef9d43c574a2d1b0827ecc1e3c4846f0fe" in p.stdout
     assert "built:" in p.stdout
+
+
+def test_vendor_nondefault_pin_rejected_before_work():
+    import tempfile
+
+    workdir = Path(tempfile.gettempdir()) / "kg-viz-vendor"
+    before = (workdir / "PINNED_COMMIT").exists()
+    p = run_cli("vendor", "--pin", "deadbeef", "--apply")
+    assert p.returncode != 0
+    assert "immutable" in p.stderr
+    assert (workdir / "PINNED_COMMIT").exists() == before

@@ -75,6 +75,20 @@ def test_handle_layout_max_nodes_caps():
     assert r["edges"] == []
 
 
+def test_handle_layout_drops_dangling_edges():
+    _, db = make_vault()
+    c = sqlite3.connect(db)
+    c.execute("INSERT INTO edges VALUES ('nt_a','nt_z','mentions',0.5,'e')")
+    c.commit()
+    c.close()
+    r = api.handle_layout(db, 2000)
+    ids = {n["id"] for n in r["nodes"]}
+    assert "nt_z" not in ids
+    assert r["edges"] == [{"source": "nt_a", "target": "nt_b", "type": "depends_on"}]
+    assert all(e["source"] in ids and e["target"] in ids for e in r["edges"])
+    assert r["truncated_edges"] == 0
+
+
 def test_handle_layout_ignores_tombstoned():
     _, db = make_vault()
     c = sqlite3.connect(db)

@@ -38,6 +38,10 @@ def serve_command(port: int, wiki: Path | None, no_open: bool) -> None:
 @click.option("--version", "version_flag", is_flag=True, help="Show pinned commit and build state")
 def vendor_command(pin_value: str, apply: bool, verify: bool, version_flag: bool) -> None:
     """Manage the pinned upstream graph UI at build time."""
+    if pin_value != vendor.PINNED_COMMIT:
+        raise click.ClickException(
+            f"pinned commit is immutable in v1; only {vendor.PINNED_COMMIT} is supported"
+        )
     workdir = Path(tempfile.gettempdir()) / "kg-viz-vendor"
     if apply:
         assets = vendor.apply_vendor(workdir)

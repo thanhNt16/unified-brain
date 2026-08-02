@@ -26,22 +26,31 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _load_nodes(conn: sqlite3.Connection) -> list[dict[str, str]]:
+    rows = conn.execute(
+        "SELECT id, kind, type, title FROM notes WHERE status NOT IN ('tombstone', 'superseded') ORDER BY id"
+    ).fetchall()
+    return [
+        {
+            "id": str(row["id"]),
+            "kg_id": str(row["id"]),
+            "label": str(row["kind"]),
+            "name": str(row["title"]),
+            "path": str(row["type"] or ""),
+        }
+        for row in rows
+    ]
+
+
+def _load_edges(conn: sqlite3.Connection) -> list[dict[str, str]]:
+    rows = conn.execute("SELECT src, dst, relation FROM edges ORDER BY src, dst, relation").fetchall()
+    return [{"source": str(row["src"]), "target": str(row["dst"]), "type": str(row["relation"])} for row in rows]
+
+
 def load_nodes(db_path: Path) -> list[dict[str, str]]:
     conn = _connect(db_path)
     try:
-        rows = conn.execute(
-            "SELECT id, kind, type, title FROM notes WHERE status NOT IN ('tombstone', 'superseded') ORDER BY id"
-        ).fetchall()
-        return [
-            {
-                "id": str(row["id"]),
-                "kg_id": str(row["id"]),
-                "label": str(row["kind"]),
-                "name": str(row["title"]),
-                "path": str(row["type"] or ""),
-            }
-            for row in rows
-        ]
+        return _load_nodes(conn)
     finally:
         conn.close()
 
@@ -49,14 +58,22 @@ def load_nodes(db_path: Path) -> list[dict[str, str]]:
 def load_edges(db_path: Path) -> list[dict[str, str]]:
     conn = _connect(db_path)
     try:
-        rows = conn.execute("SELECT src, dst, relation FROM edges ORDER BY src, dst, relation").fetchall()
-        return [{"source": str(row["src"]), "target": str(row["dst"]), "type": str(row["relation"])} for row in rows]
+        return _load_edges(conn)
     finally:
         conn.close()
 
 
 def handle_layout(db_path: Path, max_nodes: int) -> layout3d.LayoutResult:
-    return layout3d.compute_layout(load_nodes(db_path), load_edges(db_path), max_nodes)
+    # One read-only connection/snapshot so nodes and edges cannot diverge mid-read.
+    conn = _connect(db_path)
+    try:
+        nodes = _load_nodes(conn)
+        edges = _load_edges(conn)
+    finally:
+        conn.close()
+    idset = {str(n["id"]) for n in nodes}
+    edges = [e for e in edges if str(e["source"]) in idset and str(e["target"]) in idset]
+    return layout3d.compute_layout(nodes, edges, max_nodes)
 
 
 def _meta(db_path: Path, key: str, default: str = "") -> str:
