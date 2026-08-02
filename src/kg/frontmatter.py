@@ -43,9 +43,13 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
         value = yaml.load(text[4:end], Loader=_UniqueKeyLoader)
     except yaml.YAMLError as exc:
         raise FrontmatterError("invalid yaml") from exc
+    if isinstance(value, dict):
+        for key in ("created", "updated"):
+            if key in value and hasattr(value[key], "isoformat"):
+                value[key] = value[key].isoformat()
     if not isinstance(value, dict) or not _REQUIRED.issubset(value):
         raise FrontmatterError("missing required key")
-    return value, text[end + 5 :]
+    return value, text[end + 5:]
 
 
 def render_frontmatter(data: dict[str, object], body: str = "") -> str:
