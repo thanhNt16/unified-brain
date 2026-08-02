@@ -33,12 +33,12 @@ def _render_fixture_installer(tmp_path: Path, *, bad_source_hash: bool) -> Path:
     )
 
     script = INSTALLER.read_text()
-    script = script.replace(
-        "SOURCE_URL=\"https://github.com/harrynguyen/unified-brain/archive/",
-        "SOURCE_URL=\"file://",
-    ).replace(".tar.gz\"", ".tar.gz\"", 1)
-    script = script.replace("https://github.com/harrynguyen/unified-brain/releases/download/v1.0.0/unified_brain_kg-1.0.0-py3-none-any.whl", f"file://{artifact}")
-    script = script.replace("https://github.com/harrynguyen/unified-brain/releases/download/v1.0.0/SHA256SUMS", f"file://{checksums}")
+    source_line = next(line for line in script.splitlines() if line.startswith("SOURCE_URL="))
+    artifact_line = next(line for line in script.splitlines() if line.startswith("ARTIFACT_URL="))
+    checksum_line = next(line for line in script.splitlines() if line.startswith("CHECKSUM_URL="))
+    script = script.replace(source_line, f'SOURCE_URL="file://{source}"')
+    script = script.replace(artifact_line, f'ARTIFACT_URL="file://{artifact}"')
+    script = script.replace(checksum_line, f'CHECKSUM_URL="file://{checksums}"')
 
     out = tmp_path / "install.sh"
     out.write_text(script, encoding="utf-8")
