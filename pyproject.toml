@@ -17,6 +17,7 @@ kg = "kg.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kg"]
+force-include = {"templates/skills" = "templates/skills"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
