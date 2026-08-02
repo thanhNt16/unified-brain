@@ -55,6 +55,8 @@ def test_dream_diff_strict_shape() -> None:
 
 def test_open_q_pass_name_and_operations_key_required() -> None:
     op = DreamOp(op="drop", id=BASE["id"], reason="question", evidence=[], pass_name="open-q")
-    assert ProposedDiff(id="df_1234567890abcdef", status="proposed", operations=[op]).operations[0].pass_name == "open-q"
+    assert (
+        ProposedDiff(id="df_1234567890abcdef", status="proposed", operations=[op]).operations[0].pass_name == "open-q"
+    )
     with pytest.raises(ValidationError):
         ProposedDiff(id="df_1234567890abcdef", status="proposed", ops=[op])

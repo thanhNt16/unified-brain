@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import re
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
 from .storage import Lock, Registry, Vault, atomic_write
 
 
 def capture(vault: Vault, paths: Sequence[Path]) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
-    vault.brain.mkdir(parents=True, exist_ok=True)
+    brain = vault.brain
+    assert brain is not None
+    brain.mkdir(parents=True, exist_ok=True)
     with Lock(vault):
         registry = Registry(vault)
         for source in paths:
@@ -20,13 +22,13 @@ def capture(vault: Vault, paths: Sequence[Path]) -> list[dict[str, object]]:
             data = source.read_bytes()
             digest = hashlib.sha256(data).hexdigest()
             suffix = re.sub(r"[^a-z0-9]+", "", source.suffix.lower().lstrip(".")) or "bin"
-            raw = vault.brain / "raw" / f"sha256.{digest}.{suffix}"
+            raw = brain / "raw" / f"sha256.{digest}.{suffix}"
             deduped = registry.contains(digest)
             if not raw.exists():
                 atomic_write(raw, data)
-            row = {
+            row: dict[str, object] = {
                 "source_sha256": digest,
-                "raw_path": str(raw.relative_to(vault.brain)),
+                "raw_path": str(raw.relative_to(brain)),
                 "original_name": source.name,
                 "status": "deduped" if deduped else "captured",
             }

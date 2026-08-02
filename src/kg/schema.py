@@ -1,7 +1,20 @@
 import sqlite3
 from collections import OrderedDict
 
-CURRENT_VERSION = 1
+_FTS5_TRIGGERS = """
+CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+    INSERT INTO notes_fts(rowid,title,body) VALUES (new.rowid,new.title,new.body);
+END;
+CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+    INSERT INTO notes_fts(notes_fts,rowid,title,body) VALUES ('delete',old.rowid,old.title,old.body);
+END;
+CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+    INSERT INTO notes_fts(notes_fts,rowid,title,body) VALUES ('delete',old.rowid,old.title,old.body);
+    INSERT INTO notes_fts(rowid,title,body) VALUES (new.rowid,new.title,new.body);
+END;
+"""
+
+CURRENT_VERSION = 2
 MIGRATIONS = OrderedDict(
     [
         (
@@ -23,9 +36,27 @@ CREATE INDEX IF NOT EXISTS edges_src_idx ON edges(src);
 CREATE INDEX IF NOT EXISTS edges_dst_idx ON edges(dst);
 CREATE INDEX IF NOT EXISTS edges_relation_idx ON edges(relation);
 """,
-        )
+        ),
+        (
+            2,
+            """-- M2 durable core: the v1 migration already creates the complete projection
+-- (notes, edges, notes_fts, vec_features, doc_norms, deleted_notes); step 2
+-- only advances the schema version to 2.
+""",
+        ),
     ]
 )
+
+
+def _repair_legacy_fts(conn: sqlite3.Connection) -> None:
+    row = conn.execute("SELECT type FROM sqlite_master WHERE name='notes_fts'").fetchone()
+    if row and row[0] == "table":
+        conn.execute("DROP TABLE notes_fts")
+    conn.execute(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, body, content='notes', content_rowid='rowid')"
+    )
+    conn.executescript(_FTS5_TRIGGERS)
+    conn.execute("INSERT INTO notes_fts(notes_fts) VALUES ('rebuild')")
 
 
 def migrate(conn: sqlite3.Connection) -> None:
@@ -44,6 +75,7 @@ def migrate(conn: sqlite3.Connection) -> None:
             if version > current:
                 conn.executescript(sql)
                 conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('schema_version',?)", (str(version),))
+        _repair_legacy_fts(conn)
         conn.commit()
     except Exception:
         conn.rollback()

@@ -34,9 +34,45 @@ def test_notes_fts_is_external_content_fts5_with_triggers() -> None:
     c.execute(
         "insert into notes(id,kind,title,body,tags_json,frontmatter_json,status,source_sha256,created,updated) "
         "values(?,?,?,?,?,?,?,?,?,?)",
-        ("nt_0000000000000000", "concept", "Alpha", "beta body", "[]", "{}", "draft", "a" * 64, "2026-01-01", "2026-01-01"),
+        (
+            "nt_0000000000000000",
+            "concept",
+            "Alpha",
+            "beta body",
+            "[]",
+            "{}",
+            "draft",
+            "a" * 64,
+            "2026-01-01",
+            "2026-01-01",
+        ),
     )
     assert c.execute("select title from notes_fts where notes_fts match 'beta'").fetchone()[0] == "Alpha"
+
+
+def test_legacy_plain_fts_is_repaired_on_migration() -> None:
+    c = sqlite3.connect(":memory:")
+    c.executescript(
+        """
+        CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO meta VALUES ('schema_version', '1');
+        CREATE TABLE notes(
+            id TEXT PRIMARY KEY, kind TEXT NOT NULL, type TEXT, title TEXT NOT NULL,
+            body TEXT NOT NULL DEFAULT '', tags_json TEXT NOT NULL,
+            frontmatter_json TEXT NOT NULL, status TEXT NOT NULL, supersedes TEXT,
+            source_sha256 TEXT NOT NULL, created TEXT NOT NULL, updated TEXT NOT NULL
+        );
+        CREATE TABLE notes_fts(rowid INTEGER PRIMARY KEY, title, body);
+        INSERT INTO notes VALUES(
+            'nt_0000000000000000', 'concept', NULL, 'Legacy', 'legacy beta', '[]', '{}',
+            'draft', NULL, 'a' || printf('%064d', 0), '2026-01-01', '2026-01-01'
+        );
+        """
+    )
+    migrate(c)
+    sql = c.execute("select sql from sqlite_master where name='notes_fts'").fetchone()[0]
+    assert sql.startswith("CREATE VIRTUAL TABLE")
+    assert c.execute("select title from notes_fts where notes_fts match 'beta'").fetchone()[0] == "Legacy"
 
 
 def test_deleted_notes_diff_id_nullable() -> None:
@@ -44,8 +80,5 @@ def test_deleted_notes_diff_id_nullable() -> None:
     migrate(c)
     column = next(col for col in c.execute("pragma table_info(deleted_notes)") if col[1] == "diff_id")
     assert column[3] == 0
-    c.execute(
-        "insert into deleted_notes(id,reason,diff_id,ts) values('nt_0000000000000000','x',NULL,'2026-01-01')"
-    )
+    c.execute("insert into deleted_notes(id,reason,diff_id,ts) values('nt_0000000000000000','x',NULL,'2026-01-01')")
     assert c.execute("select diff_id from deleted_notes").fetchone()[0] is None
-

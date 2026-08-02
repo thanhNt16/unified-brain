@@ -8,7 +8,6 @@ def _append_contract(path: str) -> None:
     ContractLog(Path(path)).append("kg", "test", {}, {"ok": True})
 
 
-
 import pytest
 
 from kg.storage import (
