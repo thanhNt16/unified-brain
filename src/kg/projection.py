@@ -6,9 +6,13 @@ import re
 import sqlite3
 import zlib
 from collections import defaultdict
+from pathlib import Path
 from typing import Final
 
+from .frontmatter import parse_note
 from .models import Edge, Note
+from .schema import migrate
+from .storage import Vault
 
 DIM: Final[int] = 16384
 _WORD = re.compile(r"[a-z0-9]+")
@@ -65,3 +69,59 @@ def project_edge(conn: sqlite3.Connection, edge: Edge) -> None:
         "on conflict(src,relation,dst) do update set confidence=excluded.confidence,evidence=excluded.evidence",
         (edge.src, edge.dst, edge.relation, edge.confidence, edge.evidence),
     )
+
+
+def _note_paths(vault: Vault) -> list[Path]:
+    return sorted((vault.brain / "notes").glob("*/*.md"))
+
+
+def index_all(vault: Vault, conn: sqlite3.Connection) -> int:
+    migrate(conn)
+    error_path = vault.brain / ".kg" / "index-errors.jsonl"
+    error_path.parent.mkdir(parents=True, exist_ok=True)
+    errors = 0
+    with error_path.open("w", encoding="utf-8") as log:
+        for path in _note_paths(vault):
+            try:
+                note, body = parse_note(path.read_text(encoding="utf-8"))
+                index_note(conn, note, body)
+            except (UnicodeDecodeError, ValueError, TypeError, KeyError) as exc:
+                errors += 1
+                log.write(json.dumps({"code": "parse_error", "path": str(path), "message": str(exc)}, sort_keys=True) + "\n")
+    conn.commit()
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    return errors
+
+
+def rebuild(vault: Vault) -> dict[str, int]:
+    db = vault.brain / ".kg" / "brain.sqlite"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db)
+    # Drop in dependency order, then reset schema metadata so migration recreates tables.
+    conn.executescript(
+        """
+        DROP TRIGGER IF EXISTS notes_ai;
+        DROP TRIGGER IF EXISTS notes_ad;
+        DROP TRIGGER IF EXISTS notes_au;
+        DROP TABLE IF EXISTS notes_fts;
+        DROP TABLE IF EXISTS vec_features;
+        DROP TABLE IF EXISTS doc_norms;
+        DROP TABLE IF EXISTS deleted_notes;
+        DROP TABLE IF EXISTS edges;
+        DROP TABLE IF EXISTS notes;
+        DELETE FROM meta WHERE key = 'schema_version';
+        """
+    )
+    conn.commit()
+    migrate(conn)
+    errors = index_all(vault, conn)
+    conn.close()
+    total = len(_note_paths(vault))
+    return {"errors": errors, "notes": total - errors}
+
+
+def project_proposal(conn: sqlite3.Connection, proposal: object, bodies: dict[str, str]) -> None:
+    for note in proposal.notes:
+        index_note(conn, note, bodies[note.id])
+    for edge in proposal.edges:
+        project_edge(conn, edge)
