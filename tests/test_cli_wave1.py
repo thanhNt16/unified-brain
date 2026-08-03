@@ -202,7 +202,7 @@ def test_install_force_required_is_limit_error(tmp_path: Path) -> None:
     root = tmp_path / "harness"
     assert _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"]).exit_code == 0
     # Drift an owned file so the next plan demands --force.
-    target = root / ".claude" / "skills" / "kg-init.md"
+    target = root / ".claude" / "skills" / "kg" / "init" / "SKILL.md"
     target.write_text(target.read_text().replace("Initialize", "Changed"), encoding="utf-8")
     result = _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"])
     assert result.exit_code == 1
@@ -215,7 +215,7 @@ def test_install_force_required_is_limit_error(tmp_path: Path) -> None:
 
 def test_install_unowned_overwrite_is_forbidden(tmp_path: Path) -> None:
     root = tmp_path / "harness"
-    target = root / ".claude" / "skills" / "kg-init.md"
+    target = root / ".claude" / "skills" / "kg" / "init" / "SKILL.md"
     target.parent.mkdir(parents=True)
     target.write_text("user content\n", encoding="utf-8")
     result = _runner().invoke(main, ["install", "--root", str(root), "--apply", "--json"])
@@ -403,13 +403,14 @@ def test_install_apply_then_uninstall_json(tmp_path: Path) -> None:
     applied = runner.invoke(main, ["install", "--root", str(root), "--apply", "--json"])
     assert applied.exit_code == 0
     assert _env(applied.output)["data"] == {"created": 15, "replaced": 0, "skipped": 0}
-    assert len(list(root.glob(".claude/skills/*"))) == 5
+    assert len(list(root.glob(".claude/skills/kg/*/SKILL.md"))) == 5
     assert len(list(root.glob(".cursor/rules/*"))) == 5
     assert len(list(root.glob(".pi/skills/*"))) == 5
     removed = runner.invoke(main, ["install", "--root", str(root), "--uninstall", "--json"])
     assert removed.exit_code == 0
     assert _env(removed.output)["data"] == {"removed": 15}
-    assert not list(root.glob(".claude/skills/*"))
+    assert not list(root.glob(".claude/skills/kg/*/SKILL.md"))
+    assert not list(root.glob(".claude/skills/kg"))
 
 
 def test_install_apply_uninstall_mutually_exclusive(tmp_path: Path) -> None:
