@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --locked --group dev
+      - run: uv run ruff check src tests bench
+      - run: uv run mypy src/kg
+      - run: uv run pytest -q
+      - run: uv build
+      - name: Check built artifacts
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          dist = Path("dist")
+          wheels = list(dist.glob("*.whl"))
+          sdists = list(dist.glob("*.tar.gz"))
+          assert len(wheels) == 1, wheels
+          assert len(sdists) == 1, sdists
+          executable_suffixes = {".js", ".mjs", ".cjs", ".css", ".html", ".wasm"}
+          with zipfile.ZipFile(wheels[0]) as archive:
+              names = archive.namelist()
+              executable_names = [name for name in names if Path(name).suffix in executable_suffixes]
+              payload = b"\n".join(archive.read(name) for name in executable_names)
+          with tarfile.open(sdists[0], "r:gz") as archive:
+              executable_members = [info for info in archive.getmembers() if info.isfile() and Path(info.name).suffix in executable_suffixes]
+              payload += b"\n".join(archive.extractfile(info).read() for info in executable_members)
+          assert b"http://" not in payload
+          assert b"https://" not in payload
+          assert any("assets/LICENSE.upstream" in name for name in names)
+          assert any("assets/PROVENANCE.md" in name for name in names)
+          PY
+      - run: uv run kg --version
+      - run: uv run kg --help
+      - run: uv run kg viz --help
