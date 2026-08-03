@@ -8,14 +8,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+fcntl: Any
 try:
-    import fcntl
+    import fcntl as _fcntl
+
+    fcntl = _fcntl
 except ImportError:  # pragma: no cover - Windows
-    fcntl = None  # type: ignore[assignment]
+    fcntl = None
+msvcrt: Any
 try:
-    import msvcrt
+    import msvcrt as _msvcrt
+
+    msvcrt = _msvcrt
 except ImportError:  # pragma: no cover - POSIX
-    msvcrt = None  # type: ignore[assignment]
+    msvcrt = None
 
 
 class LockBusy(RuntimeError):
