@@ -21,7 +21,8 @@ curl -fsSL "$CHECKSUM_URL" -o "$TMP_DIR/SHA256SUMS"
     shasum -a 256 -c SHA256SUMS --ignore-missing
 )
 
-uv tool install --from "$TMP_DIR/artifact.whl" unified-brain-kg
+mv "$TMP_DIR/artifact.whl" "$TMP_DIR/unified_brain_kg-1.0.0-py3-none-any.whl"
+uv tool install --from "$TMP_DIR/unified_brain_kg-1.0.0-py3-none-any.whl" unified-brain-kg
 KG_BIN=$(command -v kg || true)
 if [ -z "$KG_BIN" ] && [ -x "$HOME/.local/bin/kg" ]; then KG_BIN="$HOME/.local/bin/kg"; fi
 [ -n "$KG_BIN" ] || { printf '%s\n' 'kg executable not found after install' >&2; exit 1; }
