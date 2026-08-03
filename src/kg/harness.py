@@ -9,7 +9,19 @@ DESCRIPTIONS = {
     "query": "Retrieve explainable graph context",
     "dream": "Generate bounded maintenance suggestions",
 }
-TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "templates/skills"
+
+
+def _template_dir() -> Path:
+    # Wheel layout: templates/skills is a top-level data dir next to kg/.
+    # Source layout: templates/skills lives two parents above kg/harness.py.
+    here = Path(__file__).resolve().parent
+    wheel_layout = here.parent / "templates" / "skills"
+    if wheel_layout.is_dir():
+        return wheel_layout
+    return here.parents[1] / "templates" / "skills"
+
+
+TEMPLATE_DIR = _template_dir()
 
 
 def _marker(skill: str, harness: str) -> str:
