@@ -6,9 +6,14 @@ fake curl/uv shims drive the script. A hash mismatch must refuse and clean temp.
 
 import hashlib
 import os
+import platform
 import stat
 import subprocess
 from pathlib import Path
+
+import pytest
+
+_SKIP_WIN = pytest.mark.skipif(platform.system() == "Windows", reason="install.sh is a POSIX sh script")
 
 INSTALLER = Path(__file__).parents[1] / "install.sh"
 
@@ -84,6 +89,7 @@ def _run(tmp_path: Path, script: Path) -> subprocess.CompletedProcess:
     return subprocess.run([str(script)], env=env, text=True, capture_output=True, check=False)
 
 
+@_SKIP_WIN
 def test_hash_mismatch_fails_and_cleans_temp(tmp_path):
     script = _render_fixture_installer(tmp_path, bad_source_hash=True)
     result = _run(tmp_path, script)
@@ -93,6 +99,7 @@ def test_hash_mismatch_fails_and_cleans_temp(tmp_path):
     assert not (tmp_path / "work" / "home" / ".local" / "bin" / "kg").exists()
 
 
+@_SKIP_WIN
 def test_verified_install_succeeds_without_harness_mutation(tmp_path):
     script = _render_fixture_installer(tmp_path, bad_source_hash=False)
     work = tmp_path / "work"

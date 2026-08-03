@@ -135,6 +135,7 @@ def test_fake_mode_bypasses_credential_requirement(tmp_path: Path, fake: None) -
     assert cells[0]["cost"] is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="process-group kill is POSIX-only")
 def test_timeout_kills_process_group(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_fake: None) -> None:
     """External timeout SIGTERMs the group, waits a grace, then SIGKILLs."""
 

@@ -1,9 +1,17 @@
+import shutil
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from kg.viz import vendor
+
+_REQUIRES_BUILD_TOOLS = pytest.mark.skipif(
+    sys.platform == "win32" or not shutil.which("git") or not shutil.which("npm"),
+    reason="vendor build requires git and npm on POSIX",
+)
 
 
 def build_workdir():
@@ -31,6 +39,7 @@ def test_verify_fails_when_not_built():
     assert ok or problems
 
 
+@_REQUIRES_BUILD_TOOLS
 def test_apply_builds_assets():
     wd = build_workdir()
     assets = vendor.apply_vendor(wd)
@@ -40,6 +49,7 @@ def test_apply_builds_assets():
     assert any((assets / "assets").glob("*.js"))
 
 
+@_REQUIRES_BUILD_TOOLS
 def test_no_external_urls_in_bundle():
     wd = build_workdir()
     assets = vendor.apply_vendor(wd)
@@ -55,6 +65,7 @@ def test_no_external_urls_in_bundle():
     assert vendor.has_network_refs() is False
 
 
+@_REQUIRES_BUILD_TOOLS
 def test_verify_passes_after_apply():
     wd = build_workdir()
     vendor.apply_vendor(wd)
@@ -62,6 +73,7 @@ def test_verify_passes_after_apply():
     assert ok, problems
 
 
+@_REQUIRES_BUILD_TOOLS
 def test_version_reports_commit_and_built():
     wd = build_workdir()
     vendor.apply_vendor(wd)
