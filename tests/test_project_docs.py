@@ -6,6 +6,8 @@ ROOT = Path(__file__).parents[1]
 
 def _text(name: str) -> str:
     path = ROOT / name
+    if not path.is_file() and path.with_suffix(".md").is_file():
+        path = path.with_suffix(".md")
     assert path.is_file(), f"missing {name}"
     text = path.read_text()
     assert len(text.strip()) >= 100, f"{name} is nontrivial"
