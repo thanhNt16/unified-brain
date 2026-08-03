@@ -1,0 +1,141 @@
+# unified-brain kg
+
+`kg` is a Python 3.11+ command-line toolkit for an offline, local-first
+knowledge graph. Canonical Markdown is authoritative; SQLite is derived
+and disposable. There is no MCP layer, no graph database, no daemon, no
+runtime Node, no CDN, and no dense-embedding model. The CLI is
+deterministic and LLM-free; a small set of skills drive the LLM steps
+(exactly five product skills: `kg:init`, `kg:ingest`, `kg:extract`,
+`kg:query`, `kg:dream`).
+
+## Requirements
+
+- Python 3.11 or newer
+- [uv](https://docs.astral.sh/uv/) for installation and development
+
+## Install
+
+Install the pinned, hash-verified release in one step:
+
+```sh
+curl -fsSL <pinned-install-url> | sh
+```
+
+The installer downloads the pinned source tarball and wheel, verifies
+both SHA256 checksums before any install, installs through `uv tool
+install --from <verified-source>`, then verifies `kg --version`. It
+prints the install plan and PATH guidance, mutates no harness files, and
+cleans up its temporary directory on every exit path.
+
+There is no Node runtime at install time or at runtime: the graph UI is
+a build-time artifact bundled into the wheel.
+
+## What the installer does not do
+
+Installing the package from source does **not** touch any agent harness
+files. Harness skills and rules are written only by the explicit,
+opt-in command:
+
+```sh
+kg install --apply
+```
+
+`kg install` by itself only prints the harness skill plan (target files
+per harness). Overwrites require an explicit force option plus
+identical-template checks. This separation is intentional: a source
+install is read-only with respect to `.claude/skills/`, `.cursor/rules/`,
+and Pi skill paths.
+
+## Commands (frozen 13-command tree)
+
+- `kg init ROOT` — create `ROOT/.brain`; rerun is a no-op
+- `kg ingest FILE...` — SHA256-capture raw sources into `.brain/raw/`, dedup by hash
+- `kg extract PROPOSAL.json` — strictly validate a proposal and write a checkpoint; never mutates canonical notes
+- `kg apply PROPOSAL.json` — the sole canonical writer: revalidate, lock, atomically replace notes, commit the projection
+- `kg query QUERY` — lexical/vector seeds, bounded graph traversal, RRF/PPR ranking, explainable results
+- `kg dream --passes CSV` — bounded deterministic ProposedDiff only; never applies
+- `kg review DIFF [--approve|--reject]` — read-only by default; apply only on explicit approval
+- `kg index [--rebuild]` — project canonical notes into SQLite, regenerate wiki, rebuild derived tables with `--rebuild`
+- `kg graph --format mermaid|dot` — bounded static export (max 500 edges)
+- `kg viz serve` — serve the bundled graph UI on `127.0.0.1:9749`
+- `kg viz vendor` — manage the pinned upstream graph UI at build time
+- `kg install [--apply|--uninstall]` — print harness plan by default; only `--apply` writes harness files
+- `kg cron-print` — print safe cron/launchd/systemd/Task Scheduler instructions; never schedules
+
+## Core flow
+
+```sh
+kg init /tmp/vault
+cd /tmp/vault
+
+# 1. Capture immutable raw sources
+kg ingest note.md reference.pdf
+
+# 2. LLM skill reads a registered source and builds a proposal,
+#    then the CLI validates it (no writes):
+kg extract proposal.json
+
+# 3. Explicitly apply the reviewed proposal: canonical notes + projection
+kg apply proposal.json
+
+# 4. Query the graph (deterministic, offline)
+kg query "linked-note query" --strategy adaptive --context --json
+
+# 5. Dream proposes maintenance ops; review applies them only on approval
+kg dream --passes dedup,contradiction,supersede,stale,orphan,open-q,community
+kg review .brain/.kg/dreams/<diff>.json --approve
+
+# 6. Regenerate the derived DB and wiki
+kg index
+
+# 7. Open the bundled graph UI on the loopback interface
+kg viz serve --port 9749
+```
+
+Every write lands under `.brain`; recovery from any derived divergence
+is `kg index --rebuild`. The canonical notes and raw captures are never
+touched by derived regeneration.
+
+## Graph UI (offline, pinned upstream)
+
+The graph UI is vendored pristine from
+[DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp)
+`graph-ui` at commit `d6be58ef9d43c574a2d1b0827ecc1e3c4846f0fe`, with no
+source patches. Upstream licensing and provenance are bundled
+(`LICENSE.upstream`, `PROVENANCE.md`, third-party notices) and the same
+documents ship in the wheel under `kg/viz/assets/`.
+
+`kg viz serve` binds loopback (`127.0.0.1:9749`) only, with a
+per-process bearer token printed once, exact loopback Host/Origin
+allowlists, CSP/nosniff headers, bounded layout/payload caps, strict
+path traversal rejection, and a read-only SQLite connection. The UI is a
+static bundle; there is no CDN and no external network access at
+runtime.
+
+## Benchmarks
+
+`bench/` holds a fixed corpus, a task manifest, a model configuration,
+and real harness runners (Claude Code, Cursor, Pi, and a no-tool
+baseline). Every release runs the same corpus and tasks through every
+configured harness.
+
+Results are reported per cell as `{harness, task, pass, time_s, tokens,
+cost, status, reason}`. A cell that cannot be measured is recorded
+honestly as `NOT_MEASURED` with its reason; no synthetic or invented
+scores are produced. The release gate requires every mandatory cell to
+be `MEASURED` and passing, and any absent or `NOT_MEASURED` required
+cell blocks the release.
+
+## Security
+
+- Loopback-only HTTP; bearer token per process, printed once, never persisted or logged
+- No shell interpolation in subprocesses; `kg` uses direct exec
+- Ingest accepts regular files only and rejects symlinks, directories, and control paths
+- The installer verifies pinned SHA256 checksums before installing and refuses any mismatch
+- `kg cron-print` only prints scheduler instructions; it never schedules or starts a daemon
+
+## License
+
+MIT. See `LICENSE` for the full text, `NOTICE` for attribution of the
+vendored graph UI, and `LICENSE.upstream`/`PROVENANCE.md` for the
+upstream license and provenance of the pinned asset.

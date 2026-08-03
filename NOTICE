@@ -1,0 +1,6 @@
+unified-brain kg v1.0.0
+
+The bundled graph UI is attributed to DeusData/codebase-memory-mcp,
+graph-ui, pinned at commit d6be58ef9d43c574a2d1b0827ecc1e3c4846f0fe.
+The upstream MIT license is bundled in LICENSE.upstream; provenance is
+recorded in PROVENANCE.md.

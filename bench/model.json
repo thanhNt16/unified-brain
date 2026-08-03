@@ -1,0 +1,9 @@
+{
+  "settings": {"temperature": 0, "max_tokens": 1024},
+  "harnesses": {
+    "claude-code": {"command": ["/Users/harrynguyen/.local/bin/claude", "--print", "--output-format", "json", "--model", "haiku"], "credentials_env": "CLAUDE_API_KEY"},
+    "cursor": {"command": ["/Users/harrynguyen/.local/bin/cursor-agent", "-p", "--output-format", "json", "--model", "haiku"], "credentials_env": "CURSOR_API_KEY"},
+    "pi": {"command": ["/Users/harrynguyen/.nvm/versions/node/v22.19.0/bin/node", "/Users/harrynguyen/.nvm/versions/node/v22.19.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js", "--print", "--mode", "json"], "credentials_env": "PI_API_KEY"},
+    "no-tool": {"command": ["python", "-m", "bench.harness_no_tool"], "credentials_env": null}
+  }
+}

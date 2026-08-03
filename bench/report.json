@@ -1,0 +1,62 @@
+[
+  {
+    "cost": null,
+    "harness": "claude-code",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "capture",
+    "time_s": 12.946,
+    "tokens": null
+  },
+  {
+    "cost": null,
+    "harness": "claude-code",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "retrieve",
+    "time_s": 15.433,
+    "tokens": null
+  },
+  {
+    "cost": null,
+    "harness": "pi",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "capture",
+    "time_s": 8.268,
+    "tokens": null
+  },
+  {
+    "cost": null,
+    "harness": "pi",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "retrieve",
+    "time_s": 6.491,
+    "tokens": null
+  },
+  {
+    "cost": null,
+    "harness": "no-tool",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "capture",
+    "time_s": 0.148,
+    "tokens": null
+  },
+  {
+    "cost": null,
+    "harness": "no-tool",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
+    "task": "retrieve",
+    "time_s": 0.15,
+    "tokens": null
+  }
+]

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unified-brain kg — benchmark results</title>
+<style>
+:root {
+  --bg:#ffffff; --surface:#f6f7f9; --ink:#1b1f24; --muted:#57606a; --border:#d9dee3;
+  --good:#1a7f37; --good-bg:#e6f4ea; --warn:#9a6700; --warn-bg:#fff8c5;
+  --crit:#cf222e; --crit-bg:#ffebe9; --radius:10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#0d1117; --surface:#161b22; --ink:#e6edf3; --muted:#9198a1; --border:#30363d;
+    --good:#3fb950; --good-bg:#0d2818; --warn:#d29922; --warn-bg:#3a2c00;
+    --crit:#f85149; --crit-bg:#4a1212;
+  }
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+main { max-width:1000px; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:1.5rem; margin:0 0 4px; }
+.sub { color:var(--muted); margin:0 0 20px; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+.tile { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+.tile-value { font-size:1.8rem; font-weight:650; line-height:1.1; }
+.tile-label { color:var(--muted); font-size:.82rem; margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+.tile-good .tile-value { color:var(--good); }
+.tile-warning .tile-value { color:var(--warn); }
+.tile-critical .tile-value { color:var(--crit); }
+.gate { border-radius:var(--radius); padding:14px 16px; margin-bottom:20px; border:1px solid var(--border); }
+.gate-good { background:var(--good-bg); }
+.gate-critical { background:var(--crit-bg); }
+.gate h2 { margin:0 0 4px; font-size:1.05rem; }
+.gate p { margin:0; color:var(--muted); }
+.gate-detail { white-space:pre-wrap; word-break:break-word; margin:10px 0 0; font-size:.82rem; }
+section h2 { font-size:1.05rem; margin:0 0 10px; }
+.table-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); }
+table { border-collapse:collapse; width:100%; font-size:.9rem; }
+th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+th { background:var(--surface); font-weight:600; position:sticky; top:0; }
+td.num { font-variant-numeric:tabular-nums; text-align:right; }
+td.reason { white-space:normal; min-width:220px; color:var(--muted); }
+.badge { display:inline-flex; gap:4px; align-items:center; padding:2px 8px; border-radius:999px;
+  font-size:.78rem; font-weight:600; border:1px solid var(--border); }
+.badge-good { color:var(--good); background:var(--good-bg); }
+.badge-warning { color:var(--warn); background:var(--warn-bg); }
+.badge-critical { color:var(--crit); background:var(--crit-bg); }
+.badge-muted { color:var(--muted); background:var(--surface); }
+.harness { margin-top:28px; }
+.footer { color:var(--muted); font-size:.8rem; margin-top:28px; }
+</style>
+</head>
+<body>
+<main>
+<h1>unified-brain kg — benchmark results</h1>
+<p class="sub">Live haiku-model harness cells (Claude Code, Cursor, Pi) plus an independent no-tool evaluator. Status semantics are honest: <strong>NOT_MEASURED</strong> never silently passes the release gate.</p>
+<div class="tiles"><div class="tile tile-muted"><div class="tile-value">6</div><div class="tile-label">Required cells</div></div><div class="tile tile-good"><div class="tile-value">6</div><div class="tile-label">Measured</div></div><div class="tile tile-critical"><div class="tile-value">0</div><div class="tile-label">Failed</div></div><div class="tile tile-warning"><div class="tile-value">0</div><div class="tile-label">Not measured</div></div><div class="tile tile-critical"><div class="tile-value">FAIL</div><div class="tile-label">Release gate</div></div></div>
+<section class="gate gate-critical"><h2>✗ Release gate: FAIL</h2><p>Required cells missing or not measured (never silently passed):</p><pre class="gate-detail">absent: cursor/capture; absent: cursor/retrieve</pre></section>
+<section class="harness">
+<h2>By harness</h2>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Harness</th><th>Measured</th><th>Failed</th><th>Not measured</th><th>Passing</th></tr></thead>
+<tbody><tr><td>claude-code</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">2</td></tr><tr><td>no-tool</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">2</td></tr><tr><td>pi</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">2</td></tr></tbody>
+</table>
+</div>
+</section>
+<section class="harness">
+<h2>Cells</h2>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Harness</th><th>Task</th><th>Status</th><th>Pass</th><th>Time (s)</th><th>Tokens</th><th>Cost</th><th>Reason</th></tr></thead>
+<tbody><tr><td>claude-code</td><td>capture</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">12.946</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr><tr><td>claude-code</td><td>retrieve</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">15.433</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr><tr><td>no-tool</td><td>capture</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">0.148</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr><tr><td>no-tool</td><td>retrieve</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">0.15</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr><tr><td>pi</td><td>capture</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">8.268</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr><tr><td>pi</td><td>retrieve</td><td><span class="badge badge-good"><span aria-hidden="true">✓</span> MEASURED</span></td><td class="num">pass</td><td class="num">6.491</td><td class="num">—</td><td class="num">—</td><td class="reason"></td></tr></tbody>
+</table>
+</div>
+</section>
+<p class="footer">Generated 2026-08-03 01:12:47 UTC from <code>bench/report.json</code>.</p>
+</main>
+</body>
+</html>
