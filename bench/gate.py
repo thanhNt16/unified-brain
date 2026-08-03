@@ -42,3 +42,23 @@ def gate_report(
         required_harnesses or REQUIRED_HARNESSES,
         required_tasks or _required_tasks(),
     )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Benchmark release gate.")
+    parser.add_argument("report", type=Path, nargs="?", default=Path("bench/report.json"))
+    args = parser.parse_args(argv)
+    try:
+        gate_report(args.report)
+    except ValueError as exc:
+        print(f"benchmark gate FAILED:\n{exc}", file=sys.stderr)
+        return 1
+    print("benchmark gate PASSED: all required cells measured and passing")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

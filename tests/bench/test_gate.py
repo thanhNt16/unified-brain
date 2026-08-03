@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from bench.gate import gate_report, validate_release_cells
+from bench.gate import gate_report, main, validate_release_cells
 
 REQUIRED = [{"harness": h, "task": "t1", "pass": True, "status": "MEASURED"} for h in ("claude-code", "cursor")]
 
@@ -37,3 +37,23 @@ def test_gate_report_loads_results_file(tmp_path: Path) -> None:
     path = tmp_path / "results.json"
     path.write_text(json.dumps(REQUIRED))
     gate_report(path, ["claude-code", "cursor"], ["t1"])
+
+
+def test_gate_main_passes_when_all_measured(tmp_path: Path) -> None:
+    # Build a report covering the real required harnesses/tasks the CLI defaults to.
+    from bench.gate import REQUIRED_HARNESSES, _required_tasks
+
+    cells = [
+        {"harness": h, "task": t, "pass": True, "status": "MEASURED"}
+        for h in REQUIRED_HARNESSES
+        for t in _required_tasks()
+    ]
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(cells))
+    assert main([str(path)]) == 0
+
+
+def test_gate_main_fails_nonzero_on_absent_cell(tmp_path: Path) -> None:
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(REQUIRED[:1]))
+    assert main([str(path)]) == 1
