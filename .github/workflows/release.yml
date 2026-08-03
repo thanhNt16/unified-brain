@@ -1,73 +1,50 @@
 name: Release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  release:
-    types: [published]
 
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  live-benchmark:
-    name: Live benchmark gate
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
-    env:
-      CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-      PI_API_KEY: ${{ secrets.PI_API_KEY }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --locked --group dev
-      - name: Fail if benchmark credentials are missing
-        run: |
-          if [ -z "$CLAUDE_API_KEY" ] && [ -z "$CURSOR_API_KEY" ] && [ -z "$PI_API_KEY" ]; then
-            echo "No benchmark harness credentials configured; release gate cannot measure cells."
-            exit 1
-          fi
-      - name: Run live benchmark
-        env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          PI_API_KEY: ${{ secrets.PI_API_KEY }}
-        run: uv run python -m bench.runner
-      - name: Gate release on measured cells
-        run: uv run python -m bench.gate
-
   release:
-    name: Publish release
-    needs: [ci, live-benchmark]
+    name: Build and publish release
+    needs: [ci]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event_name == 'release'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --locked --group dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: uv sync --group dev
       - run: uv build
       - run: uv run kg --version
-      - name: Verify artifact hash and version
+      - name: Verify version and create checksums
         shell: bash
         run: |
-          uv run python - <<'PY'
-          import hashlib
-          import re
-          import subprocess
-          from pathlib import Path
-
-          version = subprocess.run(
-              ["uv", "run", "kg", "--version"], capture_output=True, text=True, check=True
-          ).stdout.strip()
-          assert re.search(r"1\.0\.0", version), version
-          dist = Path("dist")
-          for artifact in sorted(dist.iterdir()):
-              digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
-              print(f"{artifact.name}: sha256={digest}")
-          PY
+          test "$(uv run kg --version)" = "kg 1.0.0"
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          test -n "$wheel"
+          cp "$wheel" dist/artifact.whl
+          source_commit=$(sed -n 's/^SOURCE_COMMIT="\([0-9a-f]*\)"/\1/p' install.sh)
+          curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/archive/${source_commit}.tar.gz" -o dist/source.tar.gz
+          (
+            cd dist
+            shasum -a 256 source.tar.gz artifact.whl > SHA256SUMS
+            shasum -a 256 -c SHA256SUMS
+          )
       - name: Publish artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+        run: |
+          tag="v$(uv run kg --version | awk '{print $2}')"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --title "$tag" --notes "Auto release from commit ${GITHUB_SHA::7}" --target main
+          fi

@@ -125,8 +125,10 @@ def test_verified_install_succeeds_without_harness_mutation(tmp_path):
 
 def test_installer_embeds_pinned_commit_and_checksums_contract():
     script = INSTALLER.read_text()
-    assert "4106f432d6073ef9ad12dce04a961a708ee0432d" in script
+    assert "cad0ea27b5b5772f87e2f26cd0232885e2d5648c" in script
     assert "SOURCE_COMMIT=" in script
+    assert "https://github.com/thanhNt16/unified-brain/" in script
+    assert "github.com/harrynguyen/" not in script
     assert "shasum -a 256 -c" in script
     assert "uv tool install --from" in script
     assert "SOURCE_SHA256=" not in script  # no embedded placeholder hash

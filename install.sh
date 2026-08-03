@@ -2,10 +2,10 @@
 set -eu
 
 RELEASE_VERSION="1.0.0"
-SOURCE_COMMIT="4106f432d6073ef9ad12dce04a961a708ee0432d"
-SOURCE_URL="https://github.com/harrynguyen/unified-brain/archive/4106f432d6073ef9ad12dce04a961a708ee0432d.tar.gz"
-ARTIFACT_URL="https://github.com/harrynguyen/unified-brain/releases/download/v1.0.0/unified_brain_kg-1.0.0-py3-none-any.whl"
-CHECKSUM_URL="https://github.com/harrynguyen/unified-brain/releases/download/v1.0.0/SHA256SUMS"
+SOURCE_COMMIT="cad0ea27b5b5772f87e2f26cd0232885e2d5648c"
+SOURCE_URL="https://github.com/thanhNt16/unified-brain/archive/cad0ea27b5b5772f87e2f26cd0232885e2d5648c.tar.gz"
+ARTIFACT_URL="https://github.com/thanhNt16/unified-brain/releases/download/v1.0.0/unified_brain_kg-1.0.0-py3-none-any.whl"
+CHECKSUM_URL="https://github.com/thanhNt16/unified-brain/releases/download/v1.0.0/SHA256SUMS"
 EXPECTED_KG_VERSION="kg 1.0.0"
 
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kg-install-XXXXXX")
