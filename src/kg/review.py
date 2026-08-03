@@ -116,7 +116,7 @@ def _approve(vault: Vault, path: Path, data: dict[str, Any], diff_value: str, op
     assert brain is not None
     db = brain / ".kg" / "brain.sqlite"
     conn = sqlite3.connect(db)
-    staged: list[tuple[Path, bytes]] = []
+    staged: list[tuple[Path, bytes, bytes]] = []  # (note_path, original_bytes, new_bytes)
     applied = 0
     try:
         for operation in operations:
@@ -126,33 +126,42 @@ def _approve(vault: Vault, path: Path, data: dict[str, Any], diff_value: str, op
                 raise ValueError("diff_state")
             note_path = brain / "notes" / str(row[0]) / f"{note_id}.md"
             try:
-                metadata, body = parse_frontmatter(note_path.read_text(encoding="utf-8"))
+                original_bytes = note_path.read_bytes()
+                metadata, body = parse_frontmatter(original_bytes.decode("utf-8"))
             except (OSError, UnicodeDecodeError, ValueError) as exc:
                 raise ValueError("diff_state") from exc
             metadata["status"] = "tombstone" if operation["op"] == "drop" else "superseded"
-            staged.append((note_path, render_frontmatter(metadata, body).encode()))
+            staged.append((note_path, original_bytes, render_frontmatter(metadata, body).encode()))
             applied += 1
-        # DB projection first: a failure here leaves canonical files untouched, so
-        # `kg index --rebuild` (which reads canonical) converges rather than
-        # resurrecting tombstones. Diff status joins the same decision window.
-        conn.execute("BEGIN")
-        for operation in operations:
-            note_id = operation["id"]
-            status = "tombstone" if operation["op"] == "drop" else "superseded"
-            conn.execute("UPDATE notes SET status=? WHERE id=?", (status, note_id))
-            conn.execute("DELETE FROM edges WHERE src=? OR dst=?", (note_id, note_id))
-            conn.execute(
-                "INSERT OR REPLACE INTO deleted_notes(id,reason,diff_id,ts) VALUES(?,?,?,?)",
-                (note_id, operation["reason"], diff_value, time.time()),
-            )
-        _write_diff_status(path, data, "approved")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
+        # Canonical-file-first (spec §3): atomically replace every staged note,
+        # then commit one SQLite projection transaction. A DB failure rolls every
+        # canonical file back to its captured original so a rebuild cannot lose or
+        # resurrect the approved decision. Diff status joins the same window.
+        for note_path, _original, new_bytes in staged:
+            atomic_write(note_path, new_bytes)
+        try:
+            conn.execute("BEGIN")
+            for operation in operations:
+                note_id = operation["id"]
+                status = "tombstone" if operation["op"] == "drop" else "superseded"
+                conn.execute("UPDATE notes SET status=? WHERE id=?", (status, note_id))
+                conn.execute("DELETE FROM edges WHERE src=? OR dst=?", (note_id, note_id))
+                conn.execute(
+                    "INSERT OR REPLACE INTO deleted_notes(id,reason,diff_id,ts) VALUES(?,?,?,?)",
+                    (note_id, operation["reason"], diff_value, time.time()),
+                )
+            _write_diff_status(path, data, "approved")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            # Restore canonical originals so DB and canonical truth stay aligned;
+            # rebuild reads canonical and would otherwise resurrect the decision.
+            for note_path, original, _new in staged:
+                try:
+                    atomic_write(note_path, original)
+                except OSError:
+                    pass
+            raise
     finally:
         conn.close()
-    # Canonical rewrites last; a crash here is repaired by rebuild from canonical.
-    for note_path, content in staged:
-        atomic_write(note_path, content)
     return applied

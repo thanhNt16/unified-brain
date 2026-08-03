@@ -283,7 +283,11 @@ def test_dream_out_inside_dreams_and_json_absent(tmp_path: Path, monkeypatch) ->
     target = root / ".brain" / ".kg" / "dreams" / "custom.json"
     result = _runner().invoke(main, ["dream", "--out", str(target), "--passes", "dedup"])
     assert result.exit_code == 0
-    assert json.loads(target.read_text())["status"] == "proposed"
+    files = list(target.parent.glob("df_*.json"))
+    assert len(files) == 1
+    diff = json.loads(files[0].read_text())
+    assert diff["status"] == "proposed"
+    assert files[0].stem == diff["id"]
     rows = [
         json.loads(line)
         for line in (root / ".brain" / ".kg" / "contract.jsonl").read_text().splitlines()

@@ -204,3 +204,46 @@ def test_cron_print_instructions_only(tmp_path: Path, monkeypatch) -> None:
         assert section in instructions
     assert "kg index --rebuild" in instructions
     assert str(root) in instructions
+
+
+def test_init_applies_schema_and_writes_manifest(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    result = _runner().invoke(main, ["init", str(root), "--json"])
+    assert result.exit_code == 0, result.output
+    env = _env(result.output)
+    assert env["ok"] is True
+    assert (root / ".brain" / ".kg" / "brain.sqlite").exists()
+    manifest = json.loads((root / ".brain" / ".kg" / "manifest.json").read_text())
+    assert manifest["version"] == "1.0.0"
+    assert "created" in manifest
+
+
+def test_init_is_idempotent(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    first = _runner().invoke(main, ["init", str(root), "--json"])
+    assert first.exit_code == 0, first.output
+    second = _runner().invoke(main, ["init", str(root), "--json"])
+    assert second.exit_code == 0, second.output
+
+
+def test_cron_print_outside_vault_emits_envelope(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = _runner().invoke(main, ["cron-print", "--json"])
+    assert result.exit_code == 1
+    env = _env(result.output)
+    assert env["ok"] is False
+    assert env["error"]["code"] == "not_initialized"
+
+
+def test_dream_custom_out_filename_is_rewritten_to_reviewable_stem(tmp_path: Path, monkeypatch) -> None:
+    root = _vault_with_note(tmp_path)
+    monkeypatch.chdir(root)
+    result = _runner().invoke(main, ["dream", "--passes", "dedup", "--out", ".brain/.kg/dreams/custom.json", "--json"])
+    assert result.exit_code == 0, result.output
+    dreams_dir = root / ".brain" / ".kg" / "dreams"
+    files = list(dreams_dir.glob("*.json"))
+    assert len(files) == 1
+    diff = json.loads(files[0].read_text())
+    assert files[0].stem == diff["id"]
+    review = _runner().invoke(main, ["review", str(files[0]), "--approve", "--json"])
+    assert review.exit_code == 0, review.output

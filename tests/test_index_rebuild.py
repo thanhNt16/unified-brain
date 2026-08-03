@@ -62,3 +62,58 @@ def test_index_all_prunes_removed_notes(tmp_path: Path) -> None:
     assert conn.execute("select id from notes order by id").fetchall() == [("nt_aaaaaaaaaaaaaaaa",)]
     assert conn.execute("select count(*) from notes_fts").fetchone()[0] == 1
     conn.close()
+
+
+def test_rebuild_preserves_edges(tmp_path: Path) -> None:
+    # Canonical frontmatter carries no edge list (spec §5), so SQLite `edges` is
+    # the durable source. A rebuild must preserve graph facts, not drop them.
+    vault = Vault(tmp_path)
+    note_dir = tmp_path / ".brain" / "notes" / "concept"
+    note_dir.mkdir(parents=True)
+    template = "---\nid: {nid}\nkind: concept\ntitle: {title}\nstatus: verified\nsource_sha256: {sha}\ncreated: 2026-01-01\nupdated: 2026-01-01\nrefs: []\ntags: []\nprovenance: []\n---\nBody\n"
+    (note_dir / "a.md").write_text(template.format(nid="nt_aaaaaaaaaaaaaaaa", title="Alpha", sha="a" * 64), encoding="utf-8")
+    (note_dir / "b.md").write_text(template.format(nid="nt_bbbbbbbbbbbbbbbb", title="Beta", sha="b" * 64), encoding="utf-8")
+    (tmp_path / ".brain" / ".kg").mkdir(parents=True)
+    conn = sqlite3.connect(tmp_path / ".brain" / ".kg" / "brain.sqlite")
+    migrate(conn)
+    index_all(vault, conn)
+    conn.execute(
+        "INSERT INTO edges(src,dst,relation,confidence) VALUES(?,?,?,?)",
+        ("nt_aaaaaaaaaaaaaaaa", "nt_bbbbbbbbbbbbbbbb", "causes", 0.9),
+    )
+    conn.commit()
+    conn.close()
+
+    rebuild(vault)
+
+    conn = sqlite3.connect(tmp_path / ".brain" / ".kg" / "brain.sqlite")
+    rows = conn.execute("select src,dst,relation from edges").fetchall()
+    conn.close()
+    assert rows == [("nt_aaaaaaaaaaaaaaaa", "nt_bbbbbbbbbbbbbbbb", "causes")]
+
+
+def test_rebuild_prunes_edges_to_removed_notes(tmp_path: Path) -> None:
+    vault = Vault(tmp_path)
+    note_dir = tmp_path / ".brain" / "notes" / "concept"
+    note_dir.mkdir(parents=True)
+    template = "---\nid: {nid}\nkind: concept\ntitle: {title}\nstatus: verified\nsource_sha256: {sha}\ncreated: 2026-01-01\nupdated: 2026-01-01\nrefs: []\ntags: []\nprovenance: []\n---\nBody\n"
+    (note_dir / "a.md").write_text(template.format(nid="nt_aaaaaaaaaaaaaaaa", title="Alpha", sha="a" * 64), encoding="utf-8")
+    (note_dir / "b.md").write_text(template.format(nid="nt_bbbbbbbbbbbbbbbb", title="Beta", sha="b" * 64), encoding="utf-8")
+    (tmp_path / ".brain" / ".kg").mkdir(parents=True)
+    conn = sqlite3.connect(tmp_path / ".brain" / ".kg" / "brain.sqlite")
+    migrate(conn)
+    index_all(vault, conn)
+    conn.execute(
+        "INSERT INTO edges(src,dst,relation,confidence) VALUES(?,?,?,?)",
+        ("nt_aaaaaaaaaaaaaaaa", "nt_bbbbbbbbbbbbbbbb", "causes", 0.9),
+    )
+    conn.commit()
+    conn.close()
+    (note_dir / "b.md").unlink()
+
+    rebuild(vault)
+
+    conn = sqlite3.connect(tmp_path / ".brain" / ".kg" / "brain.sqlite")
+    rows = conn.execute("select count(*) from edges").fetchone()[0]
+    conn.close()
+    assert rows == 0

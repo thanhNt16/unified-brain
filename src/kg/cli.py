@@ -13,7 +13,7 @@ from . import retrieval as retrieval_module
 from . import review as review_module
 from .envelope import ErrorCodes, error, ok
 from .release import VERSION
-from .storage import Vault, discover_vault
+from .storage import Vault, atomic_write, discover_vault
 from .viz.cli import viz_group
 
 # Exception message prefixes produced by the provenance modules; the CLI boundary
@@ -116,7 +116,25 @@ def _extract_contract(vault: Vault, proposal: Path, envelope: dict[str, object])
 def init_command(root: Path, as_json: bool) -> None:
     try:
         vault = _require_vault(root)
-        envelope: dict[str, object] = ok({"root": str(vault.brain)})
+        assert vault.kg is not None
+        import sqlite3
+        from datetime import UTC, datetime
+
+        from .schema import migrate
+
+        # Spec §6/§8: init applies schema and writes manifest.
+        db = vault.kg / "brain.sqlite"
+        conn = sqlite3.connect(db)
+        try:
+            migrate(conn)
+        finally:
+            conn.close()
+        manifest = {
+            "version": __import__("kg").__version__,
+            "created": datetime.now(UTC).isoformat(),
+        }
+        atomic_write(vault.kg / "manifest.json", json.dumps(manifest, sort_keys=True).encode())
+        envelope: dict[str, object] = ok({"root": str(vault.brain), "db": str(db), "manifest": manifest})
         status = 0
         _init_contract(vault)
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
@@ -282,6 +300,10 @@ def dream_command(passes: str, out_path: Path | None, as_json: bool) -> None:
         target = (out_path if out_path is not None else dreams_dir / f"{diff.id}.json").resolve()
         if target.parent != dreams_dir:
             raise ValueError("path_forbidden: --out must stay under .brain/.kg/dreams")
+        # The review gate requires the filename stem to equal the diff id, so a
+        # custom --out is always rewritten to the reviewable canonical name.
+        if target.name != f"{diff.id}.json":
+            target = dreams_dir / f"{diff.id}.json"
         payload = json.dumps(
             {
                 "id": diff.id,
@@ -470,38 +492,45 @@ def graph_command(format_name: str, as_json: bool) -> None:
 @click.option("--json", "as_json", is_flag=True)
 def cron_print_command(as_json: bool) -> None:
     """Print safe scheduler instructions; never schedules or starts a daemon."""
-    vault = _require_vault()
-    root = str(vault.brain)
-    instructions = (
-        "# kg cron-print: scheduler instructions only (kg never schedules or runs a daemon).\n"
-        "\n"
-        "# Cron (every day at 03:15 local time):\n"
-        '15 3 * * * cd "' + root + '" && kg index --rebuild --json\n'
-        "\n"
-        "# launchd (macOS) - place a plist under ~/Library/LaunchAgents/ and `launchctl load`:\n"
-        "#   Label: com.example.kg-index\n"
-        "#   ProgramArguments: [\"/usr/local/bin/kg\", \"index\", \"--rebuild\", \"--json\"]\n"
-        "#   StartCalendarInterval: {\"Hour\": 3, \"Minute\": 15}\n"
-        "#   WorkingDirectory: " + root + "\n"
-        "\n"
-        "# systemd (Linux) - timer unit pair under ~/.config/systemd/user/:\n"
-        "#   kg-index.service:\n"
-        "#     [Service]\n"
-        "#     WorkingDirectory=" + root + "\n"
-        "#     ExecStart=/usr/local/bin/kg index --rebuild --json\n"
-        "#   kg-index.timer:\n"
-        "#     [Timer]\n"
-        "#     OnCalendar=*-*-* 03:15:00\n"
-        "#     Persistent=true\n"
-        "#   then: systemctl --user daemon-reload && systemctl --user enable --now kg-index.timer\n"
-        "\n"
-        "# Task Scheduler (Windows) - via PowerShell:\n"
-        "#   New-ScheduledTaskAction -Execute 'kg' -Argument 'index --rebuild --json' -WorkingDirectory '" + root + "'\n"
-        "#   New-ScheduledTaskTrigger -Daily -At 3:15AM\n"
-        "#   Register-ScheduledTask -TaskName 'kg-index' -Action $action -Trigger $trigger\n"
-    )
-    envelope = ok({"instructions": instructions})
-    _emit(as_json, envelope, 0)
+    try:
+        vault = _require_vault()
+        root = str(vault.brain)
+        instructions = (
+            "# kg cron-print: scheduler instructions only (kg never schedules or runs a daemon).\n"
+            "\n"
+            "# Cron (every day at 03:15 local time):\n"
+            '15 3 * * * cd "' + root + '" && kg index --rebuild --json\n'
+            "\n"
+            "# launchd (macOS) - place a plist under ~/Library/LaunchAgents/ and `launchctl load`:\n"
+            "#   Label: com.example.kg-index\n"
+            "#   ProgramArguments: [\"/usr/local/bin/kg\", \"index\", \"--rebuild\", \"--json\"]\n"
+            "#   StartCalendarInterval: {\"Hour\": 3, \"Minute\": 15}\n"
+            "#   WorkingDirectory: " + root + "\n"
+            "\n"
+            "# systemd (Linux) - timer unit pair under ~/.config/systemd/user/:\n"
+            "#   kg-index.service:\n"
+            "#     [Service]\n"
+            "#     WorkingDirectory=" + root + "\n"
+            "#     ExecStart=/usr/local/bin/kg index --rebuild --json\n"
+            "#   kg-index.timer:\n"
+            "#     [Timer]\n"
+            "#     OnCalendar=*-*-* 03:15:00\n"
+            "#     Persistent=true\n"
+            "#   then: systemctl --user daemon-reload && systemctl --user enable --now kg-index.timer\n"
+            "\n"
+            "# Task Scheduler (Windows) - via PowerShell:\n"
+            "#   New-ScheduledTaskAction -Execute 'kg' -Argument 'index --rebuild --json' -WorkingDirectory '"
+            + root
+            + "'\n"
+            "#   New-ScheduledTaskTrigger -Daily -At 3:15AM\n"
+            "#   Register-ScheduledTask -TaskName 'kg-index' -Action $action -Trigger $trigger\n"
+        )
+        envelope = ok({"instructions": instructions})
+        status = 0
+    except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
+        envelope = error(_code_of(exc), str(exc))
+        status = 1
+    _emit(as_json, envelope, status)
 
 
 if __name__ == "__main__":

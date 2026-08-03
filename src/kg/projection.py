@@ -91,7 +91,10 @@ def rebuild(vault: Vault) -> dict[str, int]:
     db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db)
     migrate(conn)
-    # Drop in dependency order, then reset schema metadata so migration recreates tables.
+    # Rebuild note-derived tables only. Per spec §5/§21, SQLite `edges` and
+    # `deleted_notes` are the durable sources (canonical frontmatter carries no
+    # edge list), so they must survive a rebuild. FTS/hashbow/norms/index-errors
+    # are fully reconstructable from canonical notes.
     conn.executescript(
         """
         DROP TRIGGER IF EXISTS notes_ai;
@@ -100,8 +103,6 @@ def rebuild(vault: Vault) -> dict[str, int]:
         DROP TABLE IF EXISTS notes_fts;
         DROP TABLE IF EXISTS vec_features;
         DROP TABLE IF EXISTS doc_norms;
-        DROP TABLE IF EXISTS deleted_notes;
-        DROP TABLE IF EXISTS edges;
         DROP TABLE IF EXISTS notes;
         DELETE FROM meta WHERE key = 'schema_version';
         """
@@ -109,6 +110,12 @@ def rebuild(vault: Vault) -> dict[str, int]:
     conn.commit()
     migrate(conn)
     errors = index_all(vault, conn)
+    # Prune edges whose endpoints no longer exist as canonical notes (e.g. a
+    # note file removed since the last index), keeping all reconstructable graph
+    # facts. `deleted_notes` is retained as status history.
+    conn.execute("DELETE FROM edges WHERE src NOT IN (SELECT id FROM notes) OR dst NOT IN (SELECT id FROM notes)")
+    conn.commit()
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.close()
     total = len(_note_paths(vault))
     return {"errors": errors, "notes": total - errors}

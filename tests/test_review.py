@@ -229,12 +229,11 @@ def test_approve_canonical_failure_converges_via_rebuild(tmp_path: Path, monkeyp
     with pytest.raises(RuntimeError):
         review.review(root, diff_path, action="approve")
     monkeypatch.setattr(review, "atomic_write", real_write)
-    # DB committed the tombstone and diff status joined the same decision window;
-    # the canonical note stayed verified. Rebuild reads canonical and converges:
-    # the DB returns to the canonical status.
-    assert json.loads(diff_path.read_text())["status"] == "approved"
+    # Canonical-file-first: a canonical write failure happens before the DB/diff
+    # decision, so every surface remains proposed/verified and rebuild is a no-op.
+    assert json.loads(diff_path.read_text())["status"] == "proposed"
     conn = sqlite3.connect(vault.kg / "brain.sqlite")
-    assert conn.execute("SELECT status FROM notes WHERE id='nt_aaaaaaaaaaaaaaaa'").fetchone()[0] == "tombstone"
+    assert conn.execute("SELECT status FROM notes WHERE id='nt_aaaaaaaaaaaaaaaa'").fetchone()[0] == "verified"
     conn.close()
     projection.rebuild(vault)
     conn = sqlite3.connect(vault.kg / "brain.sqlite")
