@@ -23,12 +23,12 @@ def _env(output: str) -> dict:
     return json.loads(output)
 
 
-def _vault_with_note(tmp_path: Path) -> Path:
+def _vault_with_note(tmp_path: Path, monkeypatch) -> Path:
     """init + ingest + apply a minimal proposal so the vault has a live DB."""
     runner = _runner()
     root = tmp_path / "vault"
     assert runner.invoke(main, ["init", str(root), "--json"]).exit_code == 0
-    # The source lives inside the vault root so ingest's anchor discovery finds .brain.
+    monkeypatch.chdir(root)
     source = root / "s.txt"
     source.write_bytes(b"source body")
     ingested = runner.invoke(main, ["ingest", str(source), "--json"])
@@ -96,7 +96,7 @@ def test_query_help_shows_exact_options(tmp_path: Path) -> None:
 
 
 def test_query_json_success_envelope(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     result = runner.invoke(main, ["query", "Alpha", "--json"])
@@ -121,7 +121,7 @@ def test_query_json_success_envelope(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_query_context_flag(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["query", "Alpha", "--context", "--json"])
     assert result.exit_code == 0
@@ -151,7 +151,7 @@ def test_query_non_integer_limit_and_hops_are_limit_error(tmp_path: Path) -> Non
 
 
 def test_query_full_args_in_contract_row(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["query", "Alpha", "--strategy", "lexical", "--hops", "1", "--limit", "5", "--json"])
     assert result.exit_code == 0
@@ -237,7 +237,7 @@ def test_query_unknown_direction_and_strategy_rejected(tmp_path: Path) -> None:
 
 
 def test_query_lexical_strategy_and_json_absent(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["query", "Alpha", "--strategy", "lexical"])
     assert result.exit_code == 0
@@ -247,7 +247,7 @@ def test_query_lexical_strategy_and_json_absent(tmp_path: Path, monkeypatch) -> 
 
 
 def test_dream_success_writes_diff_under_dreams(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["dream", "--passes", "dedup,orphan", "--json"])
     assert result.exit_code == 0
@@ -264,7 +264,7 @@ def test_dream_success_writes_diff_under_dreams(tmp_path: Path, monkeypatch) -> 
 
 
 def test_dream_default_is_all_seven_passes(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["dream", "--json"])
     assert result.exit_code == 0
@@ -278,7 +278,7 @@ def test_dream_unknown_pass_is_limit_error(tmp_path: Path) -> None:
 
 
 def test_dream_out_inside_dreams_and_json_absent(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     target = root / ".brain" / ".kg" / "dreams" / "custom.json"
     result = _runner().invoke(main, ["dream", "--out", str(target), "--passes", "dedup"])
@@ -299,7 +299,7 @@ def test_dream_out_inside_dreams_and_json_absent(tmp_path: Path, monkeypatch) ->
 
 
 def test_dream_out_outside_dreams_is_path_forbidden(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["dream", "--out", str(tmp_path / "outside.json"), "--json"])
     assert result.exit_code == 1
@@ -308,7 +308,7 @@ def test_dream_out_outside_dreams_is_path_forbidden(tmp_path: Path, monkeypatch)
 
 
 def test_review_default_is_read_only(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     dreamed = runner.invoke(main, ["dream", "--passes", "orphan", "--json"])
@@ -323,7 +323,7 @@ def test_review_default_is_read_only(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_review_flags_mutually_exclusive(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     diff_path = _env(runner.invoke(main, ["dream", "--passes", "orphan", "--json"]).output)["data"]["path"]
@@ -333,7 +333,7 @@ def test_review_flags_mutually_exclusive(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_review_approve_and_reject_flow(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     diff_path = _env(runner.invoke(main, ["dream", "--passes", "orphan", "--json"]).output)["data"]["path"]
@@ -350,7 +350,7 @@ def test_review_approve_and_reject_flow(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_review_approve_logs_single_row_with_action(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     diff_path = _env(runner.invoke(main, ["dream", "--passes", "orphan", "--json"]).output)["data"]["path"]
@@ -367,7 +367,7 @@ def test_review_approve_logs_single_row_with_action(tmp_path: Path, monkeypatch)
 
 
 def test_review_path_and_state_errors(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     # Inside the vault but outside .kg/dreams: vault discovery succeeds, then path gate rejects.

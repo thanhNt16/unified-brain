@@ -10,6 +10,7 @@ from kg.cli import main
 def test_m2_flow_and_rebuild_recovery(tmp_path: Path, monkeypatch) -> None:
     runner = CliRunner()
     assert runner.invoke(main, ["init", str(tmp_path), "--json"]).exit_code == 0
+    monkeypatch.chdir(tmp_path)
     source = tmp_path / "source.md"
     source.write_text("source", encoding="utf-8")
     ingest = runner.invoke(main, ["ingest", str(source), "--json"])

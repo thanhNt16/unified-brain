@@ -87,8 +87,6 @@ def discover_vault(root: Path, *, create: bool = True) -> VaultPaths:
     brain = root / ".brain"
     if root.exists() and not root.is_dir():
         raise ValueError("vault_exists")
-    if root.exists() and any(root.iterdir()) and not brain.exists():
-        raise ValueError("vault_exists")
     if not create:
         return VaultPaths(root)
     root.mkdir(parents=True, exist_ok=True)

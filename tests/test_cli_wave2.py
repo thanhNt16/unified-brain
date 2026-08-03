@@ -24,10 +24,11 @@ def _env(output: str) -> dict:
     return json.loads(output)
 
 
-def _vault_with_note(tmp_path: Path) -> Path:
+def _vault_with_note(tmp_path: Path, monkeypatch) -> Path:
     runner = _runner()
     root = tmp_path / "vault"
     assert runner.invoke(main, ["init", str(root), "--json"]).exit_code == 0
+    monkeypatch.chdir(root)
     source = root / "s.txt"
     source.write_bytes(b"source body")
     ingested = runner.invoke(main, ["ingest", str(source), "--json"])
@@ -115,7 +116,7 @@ def test_graph_help_shows_format_and_json(tmp_path: Path) -> None:
 
 
 def test_graph_mermaid_export(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["graph", "--format", "mermaid", "--json"])
     assert result.exit_code == 0
@@ -134,7 +135,7 @@ def test_graph_mermaid_export(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_graph_dot_export(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["graph", "--format", "dot", "--json"])
     assert result.exit_code == 0
@@ -151,7 +152,7 @@ def test_graph_dot_export(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_graph_default_format_is_mermaid(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["graph", "--json"])
     assert result.exit_code == 0
@@ -159,7 +160,7 @@ def test_graph_default_format_is_mermaid(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_graph_deterministic_output(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     runner = _runner()
     first = _env(runner.invoke(main, ["graph", "--json"]).output)
@@ -176,7 +177,7 @@ def test_graph_unsupported_format_before_db(tmp_path: Path) -> None:
 
 
 def test_graph_read_only_no_mutation(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["graph", "--json"])
     assert result.exit_code == 0
@@ -236,7 +237,7 @@ def test_cron_print_outside_vault_emits_envelope(tmp_path: Path, monkeypatch) ->
 
 
 def test_dream_custom_out_filename_is_rewritten_to_reviewable_stem(tmp_path: Path, monkeypatch) -> None:
-    root = _vault_with_note(tmp_path)
+    root = _vault_with_note(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     result = _runner().invoke(main, ["dream", "--passes", "dedup", "--out", ".brain/.kg/dreams/custom.json", "--json"])
     assert result.exit_code == 0, result.output

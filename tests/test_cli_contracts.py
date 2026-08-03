@@ -58,9 +58,10 @@ def test_unknown_source_maps_to_unknown_source_code(tmp_path: Path) -> None:
     assert _env(result.output)["error"]["code"] == "unknown_source"
 
 
-def test_limit_error_code_via_cli(tmp_path: Path) -> None:
+def test_limit_error_code_via_cli(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     assert runner.invoke(main, ["init", str(tmp_path), "--json"]).exit_code == 0
+    monkeypatch.chdir(tmp_path)
     source = tmp_path / "s.txt"
     source.write_bytes(b"x")
     ingested = runner.invoke(main, ["ingest", str(source), "--json"])
@@ -90,9 +91,10 @@ def test_limit_error_code_via_cli(tmp_path: Path) -> None:
     assert not list((tmp_path / ".brain" / ".kg" / "checkpoints").glob("*"))
 
 
-def test_dangling_edge_maps_to_dangling_edge_code(tmp_path: Path) -> None:
+def test_dangling_edge_maps_to_dangling_edge_code(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     assert runner.invoke(main, ["init", str(tmp_path), "--json"]).exit_code == 0
+    monkeypatch.chdir(tmp_path)
     source = tmp_path / "s.txt"
     source.write_bytes(b"x")
     digest = _env(runner.invoke(main, ["ingest", str(source), "--json"]).output)["data"][0]["source_sha256"]
@@ -115,13 +117,30 @@ def test_malformed_proposal_is_schema_validation(tmp_path: Path) -> None:
     assert _env(result.output)["error"]["code"] == "schema_validation"
 
 
-def test_init_nonempty_root_is_vault_exists_without_skeleton(tmp_path: Path) -> None:
+def test_init_nonempty_root_creates_skeleton_alongside_content(tmp_path: Path) -> None:
     runner = _runner()
     (tmp_path / "existing.txt").write_text("x", encoding="utf-8")
     result = runner.invoke(main, ["init", str(tmp_path), "--json"])
-    assert result.exit_code == 1
-    assert _env(result.output)["error"]["code"] == "vault_exists"
-    assert not (tmp_path / ".brain").exists()
+    assert result.exit_code == 0
+    assert _env(result.output)["ok"] is True
+    assert (tmp_path / ".brain").is_dir()
+    assert (tmp_path / "existing.txt").read_text() == "x"
+
+
+def test_ingest_directory_expands_to_files_outside_vault(tmp_path: Path, monkeypatch) -> None:
+    runner = _runner()
+    vault = tmp_path / "vault"
+    source_dir = tmp_path / "archive"
+    (source_dir / "nested").mkdir(parents=True)
+    (source_dir / "note.txt").write_text("archive note", encoding="utf-8")
+    (source_dir / "nested" / "other.md").write_text("nested note", encoding="utf-8")
+    assert runner.invoke(main, ["init", str(vault), "--json"]).exit_code == 0
+    monkeypatch.chdir(vault)
+    result = runner.invoke(main, ["ingest", str(source_dir), "--json"])
+    assert result.exit_code == 0, result.output
+    assert _env(result.output)["ok"] is True
+    assert len(_env(result.output)["data"]) == 2
+
 
 
 def test_version_option(tmp_path: Path) -> None:

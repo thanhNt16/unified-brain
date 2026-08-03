@@ -36,10 +36,12 @@ def test_discovery_and_atomic_write(tmp_path: Path) -> None:
     assert not list(paths.brain.glob(".x.*.tmp"))
 
 
-def test_nonempty_root_refused(tmp_path: Path) -> None:
-    (tmp_path / "x").write_text("x")
-    with pytest.raises(ValueError, match="vault_exists"):
-        discover_vault(tmp_path)
+def test_nonempty_root_allowed(tmp_path: Path) -> None:
+    (tmp_path / "existing.txt").write_text("x")
+    paths = discover_vault(tmp_path)
+    assert paths.brain == tmp_path / ".brain"
+    assert paths.brain.is_dir()
+    assert (tmp_path / "existing.txt").read_text() == "x"
 
 
 def test_regular_file_root_refused(tmp_path: Path) -> None:

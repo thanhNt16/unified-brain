@@ -68,6 +68,16 @@ def _existing(path: Path | None, label: str) -> Path:
     return path
 
 
+def _ingest_paths(paths: tuple[Path, ...]) -> tuple[Path, ...]:
+    expanded: list[Path] = []
+    for path in paths:
+        if path.is_dir() and not path.is_symlink():
+            expanded.extend(sorted(p for p in path.rglob("*") if p.is_file() and not p.is_symlink()))
+        else:
+            expanded.append(path)
+    return tuple(expanded)
+
+
 def _install_code(exc: install_module.InstallError) -> ErrorCodes:
     message = str(exc)
     if message.startswith("refusing unowned overwrite"):
@@ -171,10 +181,10 @@ def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
         if not files:
             raise ValueError("limit_error: at least one file is required")
         files = tuple(_existing(path, "file") for path in files)
-        vault = _require_vault(anchor=files[0])
+        vault = _require_vault()
         from .ingest import capture
 
-        data = capture(vault, list(files))
+        data = capture(vault, list(_ingest_paths(files)))
         envelope = ok(data)
         status = 0
         _ingest_contract(vault, files, envelope)
