@@ -2,11 +2,11 @@
   {
     "cost": null,
     "harness": "claude-code",
-    "pass": false,
-    "reason": "malformed JSON result",
-    "status": "FAILED",
+    "pass": true,
+    "reason": "",
+    "status": "MEASURED",
     "task": "capture",
-    "time_s": 12.389,
+    "time_s": 12.946,
     "tokens": null
   },
   {
@@ -16,27 +16,7 @@
     "reason": "",
     "status": "MEASURED",
     "task": "retrieve",
-    "time_s": 11.455,
-    "tokens": null
-  },
-  {
-    "cost": null,
-    "harness": "cursor",
-    "pass": null,
-    "reason": "missing credential: CURSOR_API_KEY",
-    "status": "NOT_MEASURED",
-    "task": "capture",
-    "time_s": 0.0,
-    "tokens": null
-  },
-  {
-    "cost": null,
-    "harness": "cursor",
-    "pass": null,
-    "reason": "missing credential: CURSOR_API_KEY",
-    "status": "NOT_MEASURED",
-    "task": "retrieve",
-    "time_s": 0.0,
+    "time_s": 15.433,
     "tokens": null
   },
   {
@@ -46,7 +26,7 @@
     "reason": "",
     "status": "MEASURED",
     "task": "capture",
-    "time_s": 8.618,
+    "time_s": 8.268,
     "tokens": null
   },
   {
@@ -56,7 +36,7 @@
     "reason": "",
     "status": "MEASURED",
     "task": "retrieve",
-    "time_s": 5.593,
+    "time_s": 6.491,
     "tokens": null
   },
   {
@@ -66,7 +46,7 @@
     "reason": "",
     "status": "MEASURED",
     "task": "capture",
-    "time_s": 0.174,
+    "time_s": 0.148,
     "tokens": null
   },
   {
@@ -76,7 +56,7 @@
     "reason": "",
     "status": "MEASURED",
     "task": "retrieve",
-    "time_s": 0.171,
+    "time_s": 0.15,
     "tokens": null
   }
 ]

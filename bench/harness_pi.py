@@ -12,7 +12,7 @@ from pathlib import Path
 
 NODE_V22 = "/Users/harrynguyen/.nvm/versions/node/v22.19.0/bin/node"
 PI_CLI = "/Users/harrynguyen/.nvm/versions/node/v22.19.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js"
-COMMAND: list[str] = [NODE_V22, PI_CLI, "--print", "--mode", "json"]
+COMMAND: list[str] = [NODE_V22, PI_CLI, "--print", "--mode", "json", "--provider", "9router", "--model", "haiku"]
 CREDENTIAL_ENV = "PI_API_KEY"
 DEFAULT_PI_DIR = Path.home() / ".pi" / "agent"
 
