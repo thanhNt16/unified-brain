@@ -125,7 +125,7 @@ def test_verified_install_succeeds_without_harness_mutation(tmp_path):
 
 def test_installer_embeds_pinned_commit_and_checksums_contract():
     script = INSTALLER.read_text()
-    assert "2b4a37a3f2c143dd237bd0855ac81f97b638a1c1" in script
+    assert "d2a40328969736e5ad405b16736d9c1ad7f6e59a" in script
     assert "SOURCE_COMMIT=" in script
     assert "https://github.com/thanhNt16/unified-brain/" in script
     assert "github.com/harrynguyen/" not in script

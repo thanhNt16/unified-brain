@@ -2,8 +2,8 @@
 set -eu
 
 RELEASE_VERSION="1.0.0"
-SOURCE_COMMIT="2b4a37a3f2c143dd237bd0855ac81f97b638a1c1"
-SOURCE_URL="https://github.com/thanhNt16/unified-brain/archive/2b4a37a3f2c143dd237bd0855ac81f97b638a1c1.tar.gz"
+SOURCE_COMMIT="d2a40328969736e5ad405b16736d9c1ad7f6e59a"
+SOURCE_URL="https://github.com/thanhNt16/unified-brain/archive/d2a40328969736e5ad405b16736d9c1ad7f6e59a.tar.gz"
 ARTIFACT_URL="https://github.com/thanhNt16/unified-brain/releases/download/v1.0.0/unified_brain_kg-1.0.0-py3-none-any.whl"
 CHECKSUM_URL="https://github.com/thanhNt16/unified-brain/releases/download/v1.0.0/SHA256SUMS"
 EXPECTED_KG_VERSION="kg 1.0.0"
