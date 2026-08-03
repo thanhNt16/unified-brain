@@ -1,7 +1,7 @@
 from pathlib import Path
 
 SKILLS = ("init", "ingest", "extract", "query", "dream")
-HARNESS_DIRS = {"claude": ".claude/skills", "cursor": ".cursor/rules", "pi": ".pi/skills"}
+HARNESS_DIRS = {"claude": ".claude/commands", "cursor": ".cursor/rules", "pi": ".pi/skills"}
 DESCRIPTIONS = {
     "init": "Initialize a local knowledge graph vault",
     "ingest": "Capture immutable source files",
@@ -34,7 +34,7 @@ def render_skill(skill: str, harness: str, body: str) -> str:
     body = body.rstrip() + "\n"
     marker = _marker(skill, harness)
     if harness == "claude":
-        return f"---\nname: {skill}\ndescription: {DESCRIPTIONS[skill]}\n---\n{marker}\n\n{body}"
+        return f"# kg:{skill}\n\n{marker}\n\n{body}"
     if harness == "cursor":
         return f"---\nname: kg:{skill}\ndescription: {DESCRIPTIONS[skill]}\nglobs: **\nalwaysApply: false\n---\n{marker}\n\n{body}"
     return f"{marker}\n# kg:{skill}\n\n{body}"
@@ -46,7 +46,7 @@ def render_all(root: Path, template_dir: Path | None = None) -> dict[Path, str]:
     rendered: dict[Path, str] = {}
     for skill in SKILLS:
         body = (source / f"kg-{skill}.md").read_text(encoding="utf-8")
-        rendered[root / HARNESS_DIRS["claude"] / "kg" / skill / "SKILL.md"] = render_skill(skill, "claude", body)
+        rendered[root / HARNESS_DIRS["claude"] / "kg" / f"{skill}.md"] = render_skill(skill, "claude", body)
         rendered[root / HARNESS_DIRS["cursor"] / f"kg-{skill}.mdc"] = render_skill(skill, "cursor", body)
         rendered[root / HARNESS_DIRS["pi"] / f"kg-{skill}.md"] = render_skill(skill, "pi", body)
     return rendered

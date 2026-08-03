@@ -15,18 +15,18 @@ def test_plan_only_does_not_mutate(tmp_path: Path):
 def test_apply_writes_all_expected_files_and_uninstall_removes_owned_files(tmp_path: Path):
     result = apply_install(plan_install(tmp_path))
     assert result == {"created": 15, "replaced": 0, "skipped": 0}
-    assert len(list(tmp_path.glob(".claude/skills/kg/*/SKILL.md"))) == 5
+    assert len(list(tmp_path.glob(".claude/commands/kg/*.md"))) == 5
     assert len(list(tmp_path.glob(".cursor/rules/*"))) == 5
     assert len(list(tmp_path.glob(".pi/skills/*"))) == 5
     assert uninstall(tmp_path) == {"removed": 15}
-    assert not any(tmp_path.glob(".claude/skills/kg/*/SKILL.md"))
-    assert not any(tmp_path.glob(".claude/skills/kg"))
+    assert not any(tmp_path.glob(".claude/commands/kg/*.md"))
+    assert not any(tmp_path.glob(".claude/commands/kg"))
 
 
 def test_identical_files_skip_and_unowned_files_are_not_overwritten(tmp_path: Path):
     apply_install(plan_install(tmp_path))
     assert all(item.action == "skip" for item in plan_install(tmp_path).items)
-    target = tmp_path / ".claude/skills/kg/init/SKILL.md"
+    target = tmp_path / ".claude/commands/kg/init.md"
     target.write_text("user content\n")
     try:
         plan_install(tmp_path)
@@ -38,8 +38,8 @@ def test_identical_files_skip_and_unowned_files_are_not_overwritten(tmp_path: Pa
 
 def test_force_replaces_owned_file(tmp_path: Path):
     apply_install(plan_install(tmp_path))
-    target = tmp_path / ".claude/skills/kg/init/SKILL.md"
-    target.write_text(target.read_text().replace("Initialize", "Changed"))
+    target = tmp_path / ".claude/commands/kg/init.md"
+    target.write_text(target.read_text().replace("# kg:init", "# Changed"))
     plan = plan_install(tmp_path, force=True)
     assert next(item for item in plan.items if item.path == target).action == "replace"
     assert apply_install(plan)["replaced"] == 1
@@ -47,7 +47,7 @@ def test_force_replaces_owned_file(tmp_path: Path):
 
 def test_partial_failure_restores_every_target(tmp_path: Path, monkeypatch):
     apply_install(plan_install(tmp_path))
-    all_rendered = list(tmp_path.glob(".claude/skills/kg/*/SKILL.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
+    all_rendered = list(tmp_path.glob(".claude/commands/kg/*.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
     for path in all_rendered:
         path.write_text(path.read_text() + "\n<!-- local edit -->\n")
     before = {p: p.read_bytes() for p in all_rendered}
@@ -76,7 +76,7 @@ def test_partial_failure_restores_every_target(tmp_path: Path, monkeypatch):
 
 def test_staging_failure_cleans_all_stages(tmp_path: Path, monkeypatch):
     apply_install(plan_install(tmp_path))
-    all_rendered = list(tmp_path.glob(".claude/skills/kg/*/SKILL.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
+    all_rendered = list(tmp_path.glob(".claude/commands/kg/*.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
     for path in all_rendered:
         path.write_text(path.read_text() + "\n<!-- local edit -->\n")
     plan = plan_install(tmp_path, force=True)
@@ -107,7 +107,7 @@ def test_failure_during_backup_restores_all_preexisting_files(tmp_path: Path, mo
     # must survive byte-identically; no .kg-stage-* or .kg-backup-* residue may
     # remain, and restored originals must never be unlinked.
     apply_install(plan_install(tmp_path))
-    all_rendered = list(tmp_path.glob(".claude/skills/kg/*/SKILL.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
+    all_rendered = list(tmp_path.glob(".claude/commands/kg/*.md")) + list(tmp_path.glob(".cursor/rules/*")) + list(tmp_path.glob(".pi/skills/*"))
     for path in all_rendered:
         path.write_text(path.read_text() + "\n<!-- local edit -->\n")
     before = {p: p.read_bytes() for p in all_rendered}
