@@ -141,6 +141,12 @@ def uninstall(root: Path) -> dict[str, int]:
         for backup in created_backups:
             if backup not in restored:
                 backup.unlink(missing_ok=True)
+    for path, _ in moved:
+        try:
+            path.parent.rmdir()
+            path.parent.parent.rmdir()
+        except OSError:
+            pass
     return {"removed": len(moved)}
 
 

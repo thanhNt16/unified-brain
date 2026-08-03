@@ -37,10 +37,10 @@ def test_wheel_installs_claude_skills(tmp_path: Path) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert sorted(path.name for path in (root / ".claude" / "skills").glob("kg-*.md")) == [
-        "kg-dream.md",
-        "kg-extract.md",
-        "kg-ingest.md",
-        "kg-init.md",
-        "kg-query.md",
+    assert sorted(p.parent.name for p in (root / ".claude" / "skills").glob("kg/*/SKILL.md")) == [
+        "dream",
+        "extract",
+        "ingest",
+        "init",
+        "query",
     ]
