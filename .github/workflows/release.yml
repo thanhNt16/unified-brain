@@ -31,11 +31,9 @@ jobs:
           wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
           test -n "$wheel"
           cp "$wheel" dist/artifact.whl
-          source_commit=$(sed -n 's/^SOURCE_COMMIT="\([0-9a-f]*\)"/\1/p' install.sh)
-          curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/archive/${source_commit}.tar.gz" -o dist/source.tar.gz
           (
             cd dist
-            shasum -a 256 source.tar.gz artifact.whl > SHA256SUMS
+            shasum -a 256 artifact.whl > SHA256SUMS
             shasum -a 256 -c SHA256SUMS
           )
       - name: Publish artifacts

@@ -26,22 +26,15 @@ def _real_hash(data: bytes) -> str:
 
 
 def _render_fixture_installer(tmp_path: Path, *, bad_source_hash: bool) -> Path:
-    source = tmp_path / "source.tar.gz"
     artifact = tmp_path / "artifact.whl"
     checksums = tmp_path / "SHA256SUMS"
-    source.write_bytes(SOURCE_TARBALL)
     artifact.write_bytes(ARTIFACT_WHEEL)
-    source_hash = "0" * 64 if bad_source_hash else _real_hash(SOURCE_TARBALL)
-    checksums.write_text(
-        f"{source_hash}  source.tar.gz\n{_real_hash(ARTIFACT_WHEEL)}  artifact.whl\n",
-        encoding="utf-8",
-    )
+    artifact_hash = "0" * 64 if bad_source_hash else _real_hash(ARTIFACT_WHEEL)
+    checksums.write_text(f"{artifact_hash}  artifact.whl\n", encoding="utf-8")
 
     script = INSTALLER.read_text()
-    source_line = next(line for line in script.splitlines() if line.startswith("SOURCE_URL="))
     artifact_line = next(line for line in script.splitlines() if line.startswith("ARTIFACT_URL="))
     checksum_line = next(line for line in script.splitlines() if line.startswith("CHECKSUM_URL="))
-    script = script.replace(source_line, f'SOURCE_URL="file://{source}"')
     script = script.replace(artifact_line, f'ARTIFACT_URL="file://{artifact}"')
     script = script.replace(checksum_line, f'CHECKSUM_URL="file://{checksums}"')
 
@@ -125,10 +118,9 @@ def test_verified_install_succeeds_without_harness_mutation(tmp_path):
 
 def test_installer_embeds_pinned_commit_and_checksums_contract():
     script = INSTALLER.read_text()
-    assert "d2a40328969736e5ad405b16736d9c1ad7f6e59a" in script
-    assert "SOURCE_COMMIT=" in script
     assert "https://github.com/thanhNt16/unified-brain/" in script
     assert "github.com/harrynguyen/" not in script
     assert "shasum -a 256 -c" in script
-    assert 'uv tool install --from "$TMP_DIR/source.tar.gz" unified-brain-kg' in script
+    assert 'uv tool install --from "$TMP_DIR/artifact.whl" unified-brain-kg' in script
+    assert "SOURCE_URL=" not in script
     assert "SOURCE_SHA256=" not in script  # no embedded placeholder hash
