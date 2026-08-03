@@ -130,5 +130,5 @@ def test_installer_embeds_pinned_commit_and_checksums_contract():
     assert "https://github.com/thanhNt16/unified-brain/" in script
     assert "github.com/harrynguyen/" not in script
     assert "shasum -a 256 -c" in script
-    assert "uv tool install --from" in script
+    assert 'uv tool install --from "$TMP_DIR/source.tar.gz" unified-brain-kg' in script
     assert "SOURCE_SHA256=" not in script  # no embedded placeholder hash

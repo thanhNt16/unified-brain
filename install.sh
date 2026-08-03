@@ -24,7 +24,7 @@ curl -fsSL "$CHECKSUM_URL" -o "$TMP_DIR/SHA256SUMS"
     shasum -a 256 -c SHA256SUMS
 )
 
-uv tool install --from "$TMP_DIR/source.tar.gz"
+uv tool install --from "$TMP_DIR/source.tar.gz" unified-brain-kg
 KG_BIN=$(command -v kg || true)
 if [ -z "$KG_BIN" ] && [ -x "$HOME/.local/bin/kg" ]; then KG_BIN="$HOME/.local/bin/kg"; fi
 [ -n "$KG_BIN" ] || { printf '%s\n' 'kg executable not found after install' >&2; exit 1; }
