@@ -1,6 +1,6 @@
 from pathlib import Path
 
-SKILLS = ("init", "ingest", "extract", "query", "dream")
+SKILLS = ("init", "ingest", "extract", "query", "dream", "apply")
 REQUIRED = ("Trigger", "When", "Contract", "Procedure")
 
 
@@ -15,7 +15,7 @@ def test_skill_sources_are_bounded_and_cli_only():
 
 
 def test_skill_names_match_product_commands():
-    expected = {"init": "kg init", "ingest": "kg ingest", "extract": "kg extract", "query": "kg query", "dream": "kg dream"}
+    expected = {"init": "kg init", "ingest": "kg ingest", "extract": "kg extract", "query": "kg query", "dream": "kg dream", "apply": "kg apply"}
     for skill, command in expected.items():
         text = Path("templates/skills", f"kg-{skill}.md").read_text()
         assert command in text

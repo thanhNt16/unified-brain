@@ -391,7 +391,7 @@ def test_install_plan_only_does_not_mutate(tmp_path: Path) -> None:
     assert result.exit_code == 0
     env = _env(result.output)
     assert env["ok"] is True
-    assert len(env["data"]["files"]) == 15
+    assert len(env["data"]["files"]) == 18
     assert env["data"]["root"] == str(root.resolve())
     assert not (root / ".claude").exists()
     assert not (root / ".cursor").exists()
@@ -402,13 +402,13 @@ def test_install_apply_then_uninstall_json(tmp_path: Path) -> None:
     runner = _runner()
     applied = runner.invoke(main, ["install", "--root", str(root), "--apply", "--json"])
     assert applied.exit_code == 0
-    assert _env(applied.output)["data"] == {"created": 15, "replaced": 0, "skipped": 0}
-    assert len(list(root.glob(".claude/commands/kg/*.md"))) == 5
-    assert len(list(root.glob(".cursor/rules/*"))) == 5
-    assert len(list(root.glob(".pi/skills/*"))) == 5
+    assert _env(applied.output)["data"] == {"created": 18, "replaced": 0, "skipped": 0}
+    assert len(list(root.glob(".claude/commands/kg/*.md"))) == 6
+    assert len(list(root.glob(".cursor/rules/*"))) == 6
+    assert len(list(root.glob(".pi/skills/*"))) == 6
     removed = runner.invoke(main, ["install", "--root", str(root), "--uninstall", "--json"])
     assert removed.exit_code == 0
-    assert _env(removed.output)["data"] == {"removed": 15}
+    assert _env(removed.output)["data"] == {"removed": 18}
     assert not list(root.glob(".claude/commands/kg/*.md"))
     assert not list(root.glob(".claude/commands/kg"))
 
@@ -426,5 +426,5 @@ def test_install_human_mode_and_plan_json(tmp_path: Path) -> None:
     assert plan.exit_code == 0
     env = json.loads(plan.output)
     assert "files" in env
-    assert len(env["files"]) == 15
+    assert len(env["files"]) == 18
     assert not (root / ".claude").exists()

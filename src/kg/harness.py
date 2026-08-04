@@ -1,13 +1,14 @@
 from pathlib import Path
 
-SKILLS = ("init", "ingest", "extract", "query", "dream")
+SKILLS = ("init", "ingest", "extract", "query", "dream", "apply")
 HARNESS_DIRS = {"claude": ".claude/commands", "cursor": ".cursor/rules", "pi": ".pi/skills"}
 DESCRIPTIONS = {
     "init": "Initialize a local knowledge graph vault",
     "ingest": "Capture immutable source files",
-    "extract": "Validate and apply approved proposals",
+    "extract": "Validate proposals against registered sources",
     "query": "Retrieve explainable graph context",
     "dream": "Generate bounded maintenance suggestions",
+    "apply": "Persist an approved proposal as canonical notes",
 }
 
 

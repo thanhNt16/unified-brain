@@ -181,7 +181,12 @@ def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
         if not files:
             raise ValueError("limit_error: at least one file is required")
         files = tuple(_existing(path, "file") for path in files)
-        vault = _require_vault()
+        try:
+            vault = _require_vault()
+        except ValueError as exc:
+            if not str(exc).startswith("not_initialized:"):
+                raise
+            vault = _require_vault(anchor=files[0])
         from .ingest import capture
 
         data = capture(vault, list(_ingest_paths(files)))

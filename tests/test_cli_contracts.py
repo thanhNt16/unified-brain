@@ -144,6 +144,18 @@ def test_ingest_directory_expands_to_files_outside_vault(tmp_path: Path, monkeyp
     assert len(_env(result.output)["data"]) == 2
 
 
+def test_ingest_finds_vault_from_source_ancestor(tmp_path: Path) -> None:
+    runner = _runner()
+    vault = tmp_path / "vault"
+    source_dir = vault / "archive"
+    source_dir.mkdir(parents=True)
+    (source_dir / "note.md").write_text("archive note", encoding="utf-8")
+    assert runner.invoke(main, ["init", str(vault), "--json"]).exit_code == 0
+    result = runner.invoke(main, ["ingest", str(source_dir), "--json"])
+    assert result.exit_code == 0, result.output
+    assert len(_env(result.output)["data"]) == 1
+
+
 def test_extract_raw_directory_returns_proposal_metadata(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     vault = tmp_path / "vault"

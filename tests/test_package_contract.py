@@ -38,6 +38,7 @@ def test_wheel_installs_claude_skills(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert sorted(p.stem for p in (root / ".claude" / "commands" / "kg").glob("*.md")) == [
+        "apply",
         "dream",
         "extract",
         "ingest",

@@ -7,18 +7,18 @@ from kg.install import InstallError, apply_install, plan_install, uninstall
 
 def test_plan_only_does_not_mutate(tmp_path: Path):
     plan = plan_install(tmp_path)
-    assert len(plan.items) == 15
+    assert len(plan.items) == 18
     assert all(item.action == "create" for item in plan.items)
     assert not (tmp_path / ".claude").exists()
 
 
 def test_apply_writes_all_expected_files_and_uninstall_removes_owned_files(tmp_path: Path):
     result = apply_install(plan_install(tmp_path))
-    assert result == {"created": 15, "replaced": 0, "skipped": 0}
-    assert len(list(tmp_path.glob(".claude/commands/kg/*.md"))) == 5
-    assert len(list(tmp_path.glob(".cursor/rules/*"))) == 5
-    assert len(list(tmp_path.glob(".pi/skills/*"))) == 5
-    assert uninstall(tmp_path) == {"removed": 15}
+    assert result == {"created": 18, "replaced": 0, "skipped": 0}
+    assert len(list(tmp_path.glob(".claude/commands/kg/*.md"))) == 6
+    assert len(list(tmp_path.glob(".cursor/rules/*"))) == 6
+    assert len(list(tmp_path.glob(".pi/skills/*"))) == 6
+    assert uninstall(tmp_path) == {"removed": 18}
     assert not any(tmp_path.glob(".claude/commands/kg/*.md"))
     assert not any(tmp_path.glob(".claude/commands/kg"))
 

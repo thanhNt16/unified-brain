@@ -5,7 +5,7 @@ from kg.harness import SKILLS, render_all
 
 def test_render_all_has_three_formats_and_shared_body(tmp_path: Path):
     rendered = render_all(tmp_path)
-    assert len(rendered) == 15
+    assert len(rendered) == 18
     claude = rendered[tmp_path / ".claude/commands/kg/init.md"]
     cursor = rendered[tmp_path / ".cursor/rules/kg-init.mdc"]
     pi = rendered[tmp_path / ".pi/skills/kg-init.md"]
