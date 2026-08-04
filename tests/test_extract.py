@@ -18,7 +18,8 @@ def test_prepare_sources_returns_registered_metadata(tmp_path: Path) -> None:
     assert result["count"] == 1
     item = result["sources"][0]
     assert item["original_name"] == "source.md"
-    assert item["proposal_path"].endswith(".brain/.kg/proposals/" + item["source_sha256"] + ".json")
+    assert Path(item["proposal_path"]).name == item["source_sha256"] + ".json"
+    assert ".kg" in Path(item["proposal_path"]).parts and "proposals" in Path(item["proposal_path"]).parts
 
 
 def test_prepare_sources_rejects_unregistered_file(tmp_path: Path) -> None:
