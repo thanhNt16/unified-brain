@@ -45,9 +45,10 @@ def test_index_outside_vault_returns_not_initialized(tmp_path: Path) -> None:
     assert not (tmp_path / ".brain").exists()
 
 
-def test_unknown_source_maps_to_unknown_source_code(tmp_path: Path) -> None:
+def test_unknown_source_maps_to_unknown_source_code(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     assert runner.invoke(main, ["init", str(tmp_path), "--json"]).exit_code == 0
+    monkeypatch.chdir(tmp_path)
     proposal = tmp_path / "p.json"
     proposal.write_text(json.dumps(_proposal("f" * 64)), encoding="utf-8")
     result = runner.invoke(main, ["extract", str(proposal), "--json"])
@@ -107,9 +108,10 @@ def test_dangling_edge_maps_to_dangling_edge_code(tmp_path: Path, monkeypatch) -
     assert _env(result.output)["error"]["code"] == "dangling_edge"
 
 
-def test_malformed_proposal_is_schema_validation(tmp_path: Path) -> None:
+def test_malformed_proposal_is_schema_validation(tmp_path: Path, monkeypatch) -> None:
     runner = _runner()
     assert runner.invoke(main, ["init", str(tmp_path), "--json"]).exit_code == 0
+    monkeypatch.chdir(tmp_path)
     path = tmp_path / "p.json"
     path.write_text("not json", encoding="utf-8")
     result = runner.invoke(main, ["extract", str(path), "--json"])
@@ -141,6 +143,23 @@ def test_ingest_directory_expands_to_files_outside_vault(tmp_path: Path, monkeyp
     assert _env(result.output)["ok"] is True
     assert len(_env(result.output)["data"]) == 2
 
+
+def test_extract_raw_directory_returns_proposal_metadata(tmp_path: Path, monkeypatch) -> None:
+    runner = _runner()
+    vault = tmp_path / "vault"
+    source_dir = tmp_path / "archive"
+    source_dir.mkdir()
+    source = source_dir / "note.md"
+    source.write_text("archive note", encoding="utf-8")
+    assert runner.invoke(main, ["init", str(vault), "--json"]).exit_code == 0
+    monkeypatch.chdir(vault)
+    assert runner.invoke(main, ["ingest", str(source_dir), "--json"]).exit_code == 0
+    result = runner.invoke(main, ["extract", str(vault / ".brain" / "raw"), "--json"])
+    assert result.exit_code == 0, result.output
+    data = _env(result.output)["data"]
+    assert data["count"] == 1
+    assert data["sources"][0]["original_name"] == "note.md"
+    assert data["sources"][0]["proposal_path"].endswith(".json")
 
 
 def test_version_option(tmp_path: Path) -> None:

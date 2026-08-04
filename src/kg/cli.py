@@ -199,14 +199,19 @@ def ingest_command(files: tuple[Path, ...], as_json: bool) -> None:
 @click.option("--json", "as_json", is_flag=True)
 def extract_command(proposal: Path, as_json: bool) -> None:
     try:
-        proposal = _existing(proposal, "proposal")
-        vault = _require_vault(anchor=proposal)
-        from .extract import extract
+        proposal = _existing(proposal, "proposal or raw source")
+        vault = _require_vault()
+        from .extract import extract, prepare_sources
 
-        data = extract(vault, proposal)
-        envelope = ok(data)
-        status = 0
-        _extract_contract(vault, proposal, envelope)
+        if proposal.is_dir() or proposal.suffix.lower() != ".json":
+            data = prepare_sources(vault, proposal)
+            envelope = ok(data)
+            status = 0
+        else:
+            data = extract(vault, proposal)
+            envelope = ok(data)
+            status = 0
+            _extract_contract(vault, proposal, envelope)
     except Exception as exc:  # noqa: BLE001 - CLI boundary must emit structured failures
         envelope = error(_code_of(exc), str(exc))
         status = 1

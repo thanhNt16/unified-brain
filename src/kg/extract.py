@@ -6,6 +6,40 @@ from .models import Proposal
 from .storage import Lock, Registry, Vault, atomic_write
 
 
+def prepare_sources(vault: Vault, source_path: Path) -> dict[str, object]:
+    brain = vault.brain
+    raw = vault.raw
+    assert brain is not None and raw is not None
+    source_path = Path(source_path).resolve()
+    if source_path.is_symlink():
+        raise ValueError("path_forbidden: symlink source")
+    if source_path.is_dir():
+        paths = sorted(path for path in source_path.rglob("*") if path.is_file() and not path.is_symlink())
+    elif source_path.is_file():
+        paths = [source_path]
+    else:
+        raise ValueError("not_found: source does not exist")
+    registry = Registry(vault)
+    rows = {str((brain / str(row["raw_path"])).resolve()): row for row in registry.read() if row.get("raw_path")}
+    sources: list[dict[str, object]] = []
+    for path in paths:
+        row = rows.get(str(path.resolve()))
+        if row is None:
+            raise ValueError(f"unknown_source: raw source is not registered: {path}")
+        digest = str(row["source_sha256"])
+        sources.append(
+            {
+                "source_sha256": digest,
+                "raw_path": str(row["raw_path"]),
+                "original_name": row.get("original_name", path.name),
+                "proposal_path": str(brain / ".kg" / "proposals" / f"{digest}.json"),
+            }
+        )
+    if not sources:
+        raise ValueError("limit_error: source contains no regular files")
+    return {"sources": sources, "count": len(sources)}
+
+
 def validate_proposal(vault: Vault, proposal: Proposal) -> Proposal:
     if not Registry(vault).contains(proposal.source_sha256):
         raise ValueError("unknown_source: source_sha256 is not registered")

@@ -4,8 +4,29 @@ from pathlib import Path
 
 import pytest
 
-from kg.extract import extract, validate_proposal
+from kg.extract import extract, prepare_sources, validate_proposal
 from kg.ingest import capture
+from kg.storage import discover_vault
+
+
+def test_prepare_sources_returns_registered_metadata(tmp_path: Path) -> None:
+    vault = discover_vault(tmp_path)
+    source = tmp_path / "source.md"
+    source.write_text("source")
+    capture(vault, [source])
+    result = prepare_sources(vault, vault.raw)
+    assert result["count"] == 1
+    item = result["sources"][0]
+    assert item["original_name"] == "source.md"
+    assert item["proposal_path"].endswith(".brain/.kg/proposals/" + item["source_sha256"] + ".json")
+
+
+def test_prepare_sources_rejects_unregistered_file(tmp_path: Path) -> None:
+    vault = discover_vault(tmp_path)
+    source = tmp_path / "not-ingested.md"
+    source.write_text("source")
+    with pytest.raises(ValueError, match="unknown_source"):
+        prepare_sources(vault, source)
 from kg.models import Proposal
 from kg.storage import Vault
 
